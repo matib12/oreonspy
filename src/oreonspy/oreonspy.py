@@ -21,14 +21,17 @@ logger.setLevel("INFO")
 class Cavity:
     simulation_initialized = False
 
-    def __init__(self, t_a=0.001, r_a=0.99, r_b=0.999, L=3000.0, debug=False):
+    def __init__(self, t_a=0.001, r_a=0.99, r_b=0.999, L=3000.0, debug=""):
         self.t_a = t_a
         self.r_a = r_a
         self.r_b = r_b
         self.L = L  # m
         self.T = L / const.c  # s
-        if debug:
-            logger.setLevel("DEBUG")
+        if debug == "":
+            logger.disabled = True
+        else:
+            logger.setLevel(debug)
+            
 
     def cavity_loss(self):
         Loss = 1.0 - np.power(self.t_a, 2) - np.power(self.r_a, 2)
