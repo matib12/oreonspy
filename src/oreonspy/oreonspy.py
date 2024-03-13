@@ -170,12 +170,12 @@ class Cavity:
         k2j = -2.0j * self.k
 
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
-        # logger.debug("Chain idx: {0}".format(chain_idx))
+        logger.debug("Chain idx: {0}".format(chain_idx))
 
         self.Ze[1:] = np.linspace(d_zeta, 0.0, self.N) + self.Z
         # logger.debug(self.Ze)
         self.Ze = np.add.accumulate(self.Ze)
-        logger.debug(self.Ze)
+        logger.debug("Ze: {0}".format(self.Ze))
 
         for idx in np.arange(0, self.N, 1):
             # print("index: {0}".format(idx))
