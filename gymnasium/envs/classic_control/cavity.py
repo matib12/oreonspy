@@ -1,4 +1,3 @@
-
 ''' ### CAVITY ENVIRONMENT ### '''
 
 import math
@@ -24,7 +23,7 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         "render_fps": 50,
     }
 
-    def __init__(self, render_mode: Optional[str] = None, d_zeta = 0., t_a = 0.1, r_a = 0.9, r_b = 0.9, L=3000., f_c = 50.e3, E_in = 1, lambd = 1064e-9):
+    def __init__(self, render_mode: Optional[str] = None, t_a = 0.1, r_a = 0.9, r_b = 0.9, L=3000., f_c = 50.e3, E_in = 1, lambd = 1064e-9):
     
     #   self.gravity = 9.8
 
@@ -44,8 +43,11 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
     #   self.kinematics_integrator = "euler"   
         
         #self.P = 0  # Power of the cavity field
-        self.d_zeta = d_zeta
+        #self.d_zeta = d_zeta
+
         self.cavity = op.Cavity(t_a , r_a , r_b , L) 
+        epsilon = np.random.uniform(-0.05*self.lambd,0.05*self.lambd)
+        self.cavity.L += epsilon
 
         # SAMPLING 
         self.f_c = f_c # Calculation frequency
@@ -57,9 +59,9 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         self.k = 2.*np.pi / self.lambd
     
     #   Lenght at which to fail the episode
-        self.lengh_limit = self.cavity.L + 2*self.lambd
+        self.lengh_limit = self.cavity.L + 3*self.lambd
 
-        self.action_space = spaces.Discrete(2)
+        self.action_space = spaces.Box(-3*self.lambd, 3*self.lambd, dtype=np.float32)
         self.observation_space = spaces.Box(0., 1., dtype=np.float32)
 
         #self.render_mode = render_mode
@@ -73,22 +75,26 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         self.state = None
         self.steps_beyond_terminated = None
 
-    def step(self, action):
+    def step(self, d_zeta):
         assert self.action_space.contains(
-            action
-        ), f"{action!r} ({type(action)}) invalid"
+            
+        ), f"{d_zeta!r} ({type(d_zeta)}) invalid"
         assert self.state is not None, "Call reset before using step method."
-        P = self.state
-        shift = self.d_zeta if action == 1 else -self.d_zeta
 
+        #shift = self.d_zeta if action == 1 else -self.d_zeta
+
+        P, self.cavity.L = self.state
         #d_zeta = np.random.uniform(0, 0.05 * self.lambd)
         self.cavity.simulation(self.k, self.f_c)
-        P = np.abs(self.cavity.sim_step(shift, self.E_in))**2
-        self.state = P
+        P = np.abs(self.cavity.sim_step(d_zeta, self.E_in))**2
+        self.cavity.L += d_zeta
+        self.state = (P, self.cavity.L)
 
+        n = int( np.random.uniform(0,5))
         terminated = bool(
             0.05 <= P <= 0.25  or P >=0.5
-            or self.cavity.L + shift > self.lengh_limit
+            or self.cavity.L > self.lengh_limit
+            or self.cavity.L == n*self.lambd
         )
 
         if not terminated:
@@ -122,14 +128,16 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         super().reset(seed=seed)
         # Note that if you use custom reset bounds, it may lead to out-of-bound
         # state/observations.
-        low, high = utils.maybe_parse_reset_bounds(
-            options, 0., 0.05  # default low
-        )  # default high
-        self.state = self.np_random.uniform(low=low, high=high, size=(4,))
+        
+        P = self.np.random.uniform(0., 0.005)
+        epsilon = np.random.uniform(-0.05*self.lambd,0.05*self.lambd)
+        self.cavity.L += epsilon
         self.steps_beyond_terminated = None
+        self.state = (P, self.cavity.L)
 
-        if self.render_mode == "human":
+        '''if self.render_mode == "human":
             self.render()
+        '''
         return np.array(self.state, dtype=np.float32), {}
 
     '''def render(self):
@@ -237,5 +245,6 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
             pygame.display.quit()
             pygame.quit()
             self.isopen = False '''
+
 
 
