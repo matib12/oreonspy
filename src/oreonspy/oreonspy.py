@@ -155,7 +155,7 @@ class Cavity:
         logger.debug("e2iknL: {0}".format(self.e2iknL))
 
         #self.E_in = np.zeros(self.number_of_2T_chains, dtype=np.complex128)
-        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)
+        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
         # self.E_last[0] = E_last
         # self.E_last[1] = E_last * self.rarbn[-1]
         self.Ze = np.zeros(self.N + 1)
