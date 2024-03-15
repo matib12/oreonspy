@@ -29,7 +29,9 @@ class Cavity:
         self.T = L / const.c  # s
         if debug == "":
             logger.disabled = True
+            pass
         else:
+            logger.disabled = False
             logger.setLevel(debug)
             
 
@@ -201,6 +203,13 @@ class Cavity:
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
         return res
+    
+    def sim_reset(self):
+        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
+        self.Ze = np.zeros(self.N + 1)
+        self.Z = 0.
+        self.__sim_step_counter__ = 0
+        
 
     def print_sim_params(self):
         print("Theta: {0:.2e} [s]".format(self.Theta))
@@ -208,6 +217,8 @@ class Cavity:
         print("N_eff: {0:.2e} [s]".format(self.N_eff()))
 
         print("N: {0}".format(self.N))
+
+        print("Number of 2T chains: {0}".format(self.number_of_2T_chains))
 
     def plot_sim_factors(self):
         plt.plot(self.rarbn, label="$(r_a r_b)^n$")
