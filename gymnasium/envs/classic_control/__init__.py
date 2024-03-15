@@ -5,3 +5,4 @@ from gymnasium.envs.classic_control.continuous_mountain_car import (
 )
 from gymnasium.envs.classic_control.mountain_car import MountainCarEnv
 from gymnasium.envs.classic_control.pendulum import PendulumEnv
+from gymnasium.envs.classic_control.cavity import CavityEnv

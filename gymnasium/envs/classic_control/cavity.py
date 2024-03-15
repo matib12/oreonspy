@@ -45,6 +45,11 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         #self.P = 0  # Power of the cavity field
         #self.d_zeta = d_zeta
 
+        # LASER
+        self.E_in = E_in  #
+        self.lambd = lambd  # m
+        self.k = 2.*np.pi / self.lambd
+
         self.cavity = op.Cavity(t_a , r_a , r_b , L) 
         epsilon = np.random.uniform(-0.05*self.lambd,0.05*self.lambd)
         self.cavity.L += epsilon
@@ -53,10 +58,7 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         self.f_c = f_c # Calculation frequency
         self.tau = 1 / self.f_c  # seconds between state updates
 
-        # LASER
-        self.E_in = E_in  #
-        self.lambd = lambd  # m
-        self.k = 2.*np.pi / self.lambd
+
     
     #   Lenght at which to fail the episode
         self.lengh_limit = self.cavity.L + 3*self.lambd
@@ -90,11 +92,11 @@ class CavityEnv(gym.Env[np.ndarray, Union[int, np.ndarray]]):
         self.cavity.L += d_zeta
         self.state = (P, self.cavity.L)
 
-        n = int( np.random.uniform(0,5))
+        #n = int( np.random.uniform(0,5))
         terminated = bool(
             0.05 <= P <= 0.25  or P >=0.5
             or self.cavity.L > self.lengh_limit
-            or self.cavity.L == n*self.lambd
+            or self.cavity.L == np.ceil(self.cavity.L/(self.lambd/2))*self.lambd
         )
 
         if not terminated:
