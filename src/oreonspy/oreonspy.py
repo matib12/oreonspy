@@ -25,8 +25,8 @@ class Cavity:
         self.t_a = t_a
         self.r_a = r_a
         self.r_b = r_b
-        self.L = L  # m
-        self.T = L / const.c  # s
+        self.L = L  # [m]
+        self.T = L / const.c  # [s] half cavity round-trip time
         if debug == "":
             logger.disabled = True
             pass
@@ -98,6 +98,7 @@ class Cavity:
 
         # Initial values
         self.k = k
+        self.k2j = -2.0j * k  # Used frequently in step()
         self.number_of_2T_chains = 1
         self.N = 1
         self.Z = 0.0
@@ -108,7 +109,7 @@ class Cavity:
 
         if N_pre < 1.0 - N_epsilon:
             logger.info("2T x times bigger then Theta. (x is integer)")
-            self.number_of_2T_chains = int(np.ceil(1.0 / N_pre)) - 1
+            self.number_of_2T_chains = int(np.ceil(1.0 / N_pre))
 
             self.f_calc = self.number_of_2T_chains / _2T
             self.Theta = 1.0 / f_calc
@@ -162,6 +163,8 @@ class Cavity:
         # self.E_last[1] = E_last * self.rarbn[-1]
         self.Ze = np.zeros(self.N + 1)
 
+        self.Z_last = np.zeros(self.number_of_2T_chains)
+
         self.__sim_step_counter__ = 0
 
         self.simulation_initialized = True
@@ -172,12 +175,14 @@ class Cavity:
             return
 
         Sum = 0.0
-        k2j = -2.0j * self.k
 
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
         logger.debug("Chain idx: {0}".format(chain_idx))
 
-        self.Ze[1:] = np.linspace(d_zeta, 0.0, self.N) + self.Z
+        self.Z += d_zeta
+
+        logger.debug("Z_last: {0}".format(self.Z_last))
+        self.Ze[1:] = np.linspace(self.Z_last[chain_idx], self.Z, self.N)
         # logger.debug(self.Ze)
         self.Ze = np.add.accumulate(self.Ze)
         logger.debug("Ze: {0}".format(self.Ze))
@@ -185,27 +190,28 @@ class Cavity:
         for idx in np.arange(0, self.N, 1):
             # print("index: {0}".format(idx))
             Sum = Sum + self.rarbn[idx] * self.e2iknL[idx] * np.exp(
-                k2j * self.Ze[idx]
+                self.k2j * self.Ze[idx]
             ) * E_in_curr
 
         res = (
             self.t_a * Sum
             + self.rarbn[self.N]
             * self.e2iknL[self.N]
-            * np.exp(k2j * self.Ze[self.N])
+            * np.exp(self.k2j * self.Ze[self.N])
             * self.E_last[chain_idx]
         )
 
         self.E_last[chain_idx] = res
         logger.debug("E_last: {0}".format(self.E_last))
-        self.Z += d_zeta
+        
+        self.Z_last[chain_idx] = self.Z
 
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
         return res
     
     def sim_reset(self):
-        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
+        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex256)  # last term of Eq. 1.55 E(t - 2NT)
         self.Ze = np.zeros(self.N + 1)
         self.Z = 0.
         self.__sim_step_counter__ = 0
