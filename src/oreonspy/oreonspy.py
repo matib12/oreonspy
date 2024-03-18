@@ -25,7 +25,7 @@ class Cavity:
         self.t_a = t_a
         self.r_a = r_a
         self.r_b = r_b
-        self.L = L  # [m]
+        self.__L__ = L  # [m]
         self.T = L / const.c  # [s] half cavity round-trip time
         if debug == "":
             logger.disabled = True
@@ -63,7 +63,7 @@ class Cavity:
 
         return 2. * T * N_eff(r_a, r_b)
         """
-        return self.F() * self.L / (np.pi * const.c)
+        return self.F() * self.__L__ / (np.pi * const.c)
 
     def Finesse(self):
         """
@@ -150,7 +150,7 @@ class Cavity:
         self.rarbn = np.power(self.r_a * self.r_b, self.n)
 
         self.e2iknL = np.exp(
-            -2.0j * self.k * (self.n) * self.L
+            -2.0j * self.k * (self.n) * self.__L__
         )  # Convert to the case when: L is multiple of lambd
 
         logger.debug("n: {0}".format(self.n))
