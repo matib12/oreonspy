@@ -165,6 +165,11 @@ class Cavity:
 
         self.Z_last = np.zeros(self.number_of_2T_chains)
 
+        # Smooth raising of the input electric field.
+        # Vector of factors in the range [0; 1] for the first 2T chains.
+        E_in_init = np.linspace(-np.pi/2., np.pi/2., self.number_of_2T_chains)
+        self.E_in_init = (np.sin(E_in_init)+1.)/2.
+
         self.__sim_step_counter__ = 0
 
         self.simulation_initialized = True
@@ -180,6 +185,9 @@ class Cavity:
         logger.debug("Chain idx: {0}".format(chain_idx))
 
         self.Z += d_zeta
+
+        if self.__sim_step_counter__ < self.number_of_2T_chains:
+            E_in_curr *= self.E_in_init[self.__sim_step_counter__]
 
         logger.debug("Z_last: {0}".format(self.Z_last))
         self.Ze[1:] = np.linspace(self.Z_last[chain_idx], self.Z, self.N)
@@ -211,7 +219,7 @@ class Cavity:
         return res
     
     def sim_reset(self):
-        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex256)  # last term of Eq. 1.55 E(t - 2NT)
+        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
         self.Ze = np.zeros(self.N + 1)
         self.Z = 0.
         self.__sim_step_counter__ = 0
