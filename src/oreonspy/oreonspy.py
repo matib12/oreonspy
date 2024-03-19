@@ -220,6 +220,7 @@ class Cavity:
     
     def sim_reset(self):
         self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
+        self.Z_last = np.zeros(self.number_of_2T_chains)
         self.Ze = np.zeros(self.N + 1)
         self.Z = 0.
         self.__sim_step_counter__ = 0
