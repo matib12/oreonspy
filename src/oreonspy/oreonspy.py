@@ -101,8 +101,6 @@ class Cavity:
         self.k2j = -2.0j * k  # Used frequently in step()
         self.number_of_2T_chains = 1
         self.N = 1
-        self.Z = 0.0
-        # self.dt = 0.
 
         N_pre = 1.0 / (f_calc * _2T)
         logger.debug("N_pre: {0}".format(N_pre))
@@ -129,7 +127,7 @@ class Cavity:
         else:
             N_max = _N_eff_factor * self.N_eff()
             if N_pre > N_max:
-                logger.info("N times Cavity decay time shorter than sampling period")
+                logger.info("N times Cavity decay time shorter than the sampling period")
                 self.N = N_max
                 self.f_calc = f_calc
                 self.Theta = 1.0 / f_calc
@@ -153,17 +151,19 @@ class Cavity:
             -2.0j * self.k * (self.n) * self.__L__
         )  # Convert to the case when: L is multiple of lambd
 
+        self.rarbne2iknL = self.rarbn * self.e2iknL
+
         logger.debug("n: {0}".format(self.n))
         logger.debug("rarbn: {0}".format(self.rarbn))
         logger.debug("e2iknL: {0}".format(self.e2iknL))
+        logger.debug("rarbne2iknL: {0}".format(self.rarbne2iknL))
 
         #self.E_in = np.zeros(self.number_of_2T_chains, dtype=np.complex128)
         self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
-        # self.E_last[0] = E_last
-        # self.E_last[1] = E_last * self.rarbn[-1]
-        self.Ze = np.zeros(self.N + 1)
 
+        self.Ze = np.zeros(self.N + 1)
         self.Z_last = np.zeros(self.number_of_2T_chains)
+        self.d_zeta_last = np.zeros(self.number_of_2T_chains)
 
         # Smooth raising of the input electric field.
         # Vector of factors in the range [0; 1] for the first 2T chains.
@@ -184,27 +184,28 @@ class Cavity:
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
         logger.debug("Chain idx: {0}".format(chain_idx))
 
-        self.Z += d_zeta
+        self.d_zeta_last[chain_idx] = d_zeta
+
+        Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
 
         if self.__sim_step_counter__ < self.number_of_2T_chains:
             E_in_curr *= self.E_in_init[self.__sim_step_counter__]
 
         logger.debug("Z_last: {0}".format(self.Z_last))
-        self.Ze[1:] = np.linspace(self.Z_last[chain_idx], self.Z, self.N)
+        self.Ze[1:] = np.linspace(self.Z_last[chain_idx], Z, self.N)
         # logger.debug(self.Ze)
         self.Ze = np.add.accumulate(self.Ze)
         logger.debug("Ze: {0}".format(self.Ze))
 
         for idx in np.arange(0, self.N, 1):
             # print("index: {0}".format(idx))
-            Sum = Sum + self.rarbn[idx] * self.e2iknL[idx] * np.exp(
+            Sum = Sum + self.rarbne2iknL[idx] * np.exp(
                 self.k2j * self.Ze[idx]
             ) * E_in_curr
 
         res = (
             self.t_a * Sum
-            + self.rarbn[self.N]
-            * self.e2iknL[self.N]
+            + self.rarbne2iknL[self.N]
             * np.exp(self.k2j * self.Ze[self.N])
             * self.E_last[chain_idx]
         )
@@ -212,7 +213,7 @@ class Cavity:
         self.E_last[chain_idx] = res
         logger.debug("E_last: {0}".format(self.E_last))
         
-        self.Z_last[chain_idx] = self.Z
+        self.Z_last[chain_idx] = Z
 
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
@@ -222,7 +223,7 @@ class Cavity:
         self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.Ze = np.zeros(self.N + 1)
-        self.Z = 0.
+        self.d_zeta_last = np.zeros(self.number_of_2T_chains)
         self.__sim_step_counter__ = 0
         
 
