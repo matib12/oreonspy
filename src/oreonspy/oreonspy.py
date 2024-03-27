@@ -102,12 +102,14 @@ class Cavity:
         self.number_of_2T_chains = 1
         self.N = 1
 
-        N_pre = 1.0 / (f_calc * _2T)
-        logger.debug("N_pre: {0}".format(N_pre))
+        self.N_pre = 1.0 / (f_calc * _2T)
+        logger.debug("N_pre: {0}".format(self.N_pre))
 
-        if N_pre < 1.0 - N_epsilon:
+        self.partial_Theta = False
+
+        if self.N_pre < 1.0 - N_epsilon:
             logger.info("2T x times bigger then Theta. (x is integer)")
-            self.number_of_2T_chains = int(np.ceil(1.0 / N_pre))
+            self.number_of_2T_chains = int(np.ceil(1.0 / self.N_pre))
 
             self.f_calc = self.number_of_2T_chains / _2T
             self.Theta = 1.0 / f_calc
@@ -116,7 +118,7 @@ class Cavity:
             )
             logger.warning("Number of chains: {0}".format(self.number_of_2T_chains))
 
-        elif N_pre < 1.0 + N_epsilon:
+        elif self.N_pre < 1.0 + N_epsilon:
             logger.info("2T comparable with Theta so N becomes 1")
             self.f_calc = 1.0 / _2T
             self.Theta = _2T
@@ -126,14 +128,16 @@ class Cavity:
 
         else:
             N_max = _N_eff_factor * self.N_eff()
-            if N_pre > N_max:
+            if self.N_pre > N_max:
                 logger.info("N times Cavity decay time shorter than the sampling period")
                 self.N = N_max
                 self.f_calc = f_calc
                 self.Theta = 1.0 / f_calc
+
+                self.partial_Theta = True
             else:
                 logger.info("")
-                self.N = int(np.round(N_pre))
+                self.N = int(np.round(self.N_pre))
                 self.Theta = _2T * self.N
                 self.f_calc = 1.0 / self.Theta
                 logger.warning(
@@ -192,7 +196,13 @@ class Cavity:
             E_in_curr *= self.E_in_init[self.__sim_step_counter__]
 
         logger.debug("Z_last: {0}".format(self.Z_last))
-        self.Ze[1:] = np.linspace(self.Z_last[chain_idx], Z, self.N)
+
+        Z_start = self.Z_last[chain_idx]
+        if self.partial_Theta:
+            Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
+            logger.debug("Z_start: {0}".format(Z_start))
+
+        self.Ze[1:] = np.linspace(Z_start, Z, self.N)
         # logger.debug(self.Ze)
         self.Ze = np.add.accumulate(self.Ze)
         logger.debug("Ze: {0}".format(self.Ze))
@@ -210,7 +220,9 @@ class Cavity:
             * self.E_last[chain_idx]
         )
 
-        self.E_last[chain_idx] = res
+        if not self.partial_Theta:
+            self.E_last[chain_idx] = res
+
         logger.debug("E_last: {0}".format(self.E_last))
         
         self.Z_last[chain_idx] = Z
@@ -230,7 +242,7 @@ class Cavity:
     def print_sim_params(self):
         print("Theta: {0:.2e} [s]".format(self.Theta))
         print("Cavity RT: {0:.2e} [s]".format(2.0 * self.T))
-        print("N_eff: {0:.2e} [s]".format(self.N_eff()))
+        print("N_eff: {0:.2e}".format(self.N_eff()))
 
         print("N: {0}".format(self.N))
 
