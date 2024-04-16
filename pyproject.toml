@@ -9,8 +9,21 @@ authors = [
   { name="Andrea Svizzeretto", email="andrea.svizzeretto@studenti.unipg.it" },
   { name="Mateusz Bawaj", email="mateusz.bawaj@unipg.it" },
 ]
+maintainers = [
+  { name="Andrea Svizzeretto", email="andrea.svizzeretto@studenti.unipg.it" },
+  { name="Mateusz Bawaj", email="mateusz.bawaj@unipg.it" },
+]
+keywords = [
+  "optics",
+  "simulation",
+  "real-time",
+  "batch",
+]
 description = "Optical resonator numerical simulation in python."
+license = "GPL-3.0-only"
 readme = "README.md"
+homepage = "https://git.ligo.org/mateusz.bawaj/tesi_svizzeretto/"
+repository = "https://git.ligo.org/mateusz.bawaj/tesi_svizzeretto/"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
