@@ -259,3 +259,47 @@ class Cavity:
         plt.title("$\exp(-2ik(n-1)L)$")
         plt.xlabel("n")
         plt.legend()
+
+
+class TestCavity(Cavity):
+    def __init__(self, debug=""):
+        Cavity.__init__(self, t_a=0.1, r_a=0.9, r_b=0.9, L=3000.0, debug=debug)
+
+class ArmCavity(Cavity):
+    '''
+    Finesse 450-460  # "The advanced Virgo longitudinal control system for the O2 observing run" s2.0-S0927650519301835
+    '''
+    def __init__(self, debug=""):
+        MassThickness = 0.2                   # m
+        SubstrateAbsorption = 0.3e-4          # 1/m; bulk absorption coef
+        MirrorSubstrateAbsorption = SubstrateAbsorption * MassThickness
+
+        t_a = 0.014
+        r_a = np.sqrt(1. - MirrorSubstrateAbsorption**2 - t_a**2)
+
+        t_b = 5e-6
+        r_b = 0.99325
+
+        lambd = 1064.e-9
+        #L = np.ceil(3000.0/lambd)*lambd - 0.05*lambd
+        L = 3000.0
+
+        Cavity.__init__(self, t_a=t_a, r_a=r_a, r_b=r_b, L=L, debug=debug)
+
+class FilterCavity(Cavity):
+    '''
+    # Finesse 9582-10204  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
+    t_a = 0.000562
+    t_b = 0.00000316  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
+    r_a = np.sqrt(1. - t_a**2)-0.00016
+    r_b = np.sqrt(1. - t_b**2)-0.00016
+    L = 284.9  # m
+    '''
+    def __init__(self, debug=""):
+        t_a = 0.000562
+        t_b = 0.00000316  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
+        r_a = np.sqrt(1. - t_a**2)-0.00016
+        r_b = np.sqrt(1. - t_b**2)-0.00016
+        L = 284.9  # m
+
+        Cavity.__init__(self, t_a=t_a, r_a=r_a, r_b=r_b, L=L, debug=debug)
