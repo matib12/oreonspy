@@ -21,10 +21,10 @@ logger.setLevel("INFO")
 class Cavity:
     simulation_initialized = False
 
-    def __init__(self, t_a=0.001, r_a=0.99, r_b=0.999, L=3000.0, debug=""):
-        self.t_a = t_a
-        self.r_a = r_a
-        self.r_b = r_b
+    def __init__(self, T_a=0.001, R_a=0.99, R_b=0.999, L=3000.0, debug=""):
+        self.t_a = np.sqrt(T_a)
+        self.r_a = np.sqrt(R_a)
+        self.r_b = np.sqrt(R_b)
         self.__L__ = L  # [m]
         self.T = L / const.c  # [s] half cavity round-trip time
         if debug == "":
@@ -178,7 +178,9 @@ class Cavity:
 
         self.simulation_initialized = True
 
-    def sim_step(self, d_zeta, E_in_curr):
+    def sim_step(self, d_zeta, P_in_curr):
+        E_in_curr = np.sqrt(P_in_curr)
+
         if self.simulation_initialized == False:
             print("Initialize first")
             return
@@ -263,10 +265,13 @@ class Cavity:
 
 class TestCavity(Cavity):
     def __init__(self, debug=""):
-        Cavity.__init__(self, t_a=0.1, r_a=0.9, r_b=0.9, L=3000.0, debug=debug)
+        Cavity.__init__(self, T_a=0.19, R_a=0.81, R_b=0.81, L=3000.0, debug=debug)
+
 
 class ArmCavity(Cavity):
     '''
+    TODO: Confirm parameters reproducing PDH signal of the arm cavity.
+
     Finesse 450-460  # "The advanced Virgo longitudinal control system for the O2 observing run" s2.0-S0927650519301835
     '''
     def __init__(self, debug=""):
@@ -275,20 +280,23 @@ class ArmCavity(Cavity):
         MirrorSubstrateAbsorption = SubstrateAbsorption * MassThickness
 
         t_a = 0.014
-        r_a = np.sqrt(1. - MirrorSubstrateAbsorption**2 - t_a**2)
+        T_a = t_a**2
+        R_a = 1. - MirrorSubstrateAbsorption**2 - T_a
 
         t_b = 5e-6
-        r_b = 0.99325
+        T_b = t_b**2
+        R_b = 0.99325
 
         lambd = 1064.e-9
         #L = np.ceil(3000.0/lambd)*lambd - 0.05*lambd
         L = 3000.0
 
-        Cavity.__init__(self, t_a=t_a, r_a=r_a, r_b=r_b, L=L, debug=debug)
+        Cavity.__init__(self, T_a=T_a, R_a=R_a, R_b=R_b, L=L, debug=debug)
+
 
 class FilterCavity(Cavity):
     '''
-    # Finesse 9582-10204  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
+    Finesse 9582-10204  # "Thermal detuning of a bichromatic narrow linewidth optical cavity" L.D. BONAVENA
     t_a = 0.000562
     t_b = 0.00000316  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
     r_a = np.sqrt(1. - t_a**2)-0.00016
@@ -297,9 +305,11 @@ class FilterCavity(Cavity):
     '''
     def __init__(self, debug=""):
         t_a = 0.000562
+        T_a = t_a**2
         t_b = 0.00000316  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
-        r_a = np.sqrt(1. - t_a**2)-0.00016
-        r_b = np.sqrt(1. - t_b**2)-0.00016
+        T_b = t_b**2
+        R_a = 1. - T_a - 0.00016
+        R_b = 1. - T_b - 0.00016
         L = 284.9  # m
 
-        Cavity.__init__(self, t_a=t_a, r_a=r_a, r_b=r_b, L=L, debug=debug)
+        Cavity.__init__(self, T_a=T_a, R_a=R_a, R_b=R_b, L=L, debug=debug)
