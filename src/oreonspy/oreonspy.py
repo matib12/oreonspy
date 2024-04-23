@@ -15,7 +15,7 @@ __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
 __maintainer__ = "developer"
 __status__ = "Production"
-__version__ = '2.0.0'
+__version__ = '2.0.1'
 
 
 from scipy import constants as const
@@ -33,10 +33,22 @@ logger.setLevel("INFO")
 class Cavity:
     simulation_initialized = False
 
-    def __init__(self, T_a=0.001, R_a=0.99, R_b=0.999, L=3000.0, debug=""):
-        self.t_a = np.sqrt(T_a)
-        self.r_a = np.sqrt(R_a)
-        self.r_b = np.sqrt(R_b)
+    def __init__(self, t_a=0.001, T_a=None, r_a=0.99, R_a=None, r_b=0.999, R_b=None, L=3000.0, debug=""):
+        if not T_a:
+            self.t_a = np.sqrt(T_a)
+        else:
+            self.t_a = t_a
+        
+        if not R_a:
+            self.r_a = np.sqrt(R_a)
+        else:
+            self.r_a = r_a
+
+        if not R_b:
+            self.r_b = np.sqrt(R_b)
+        else:
+            self.r_b = r_b
+        
         self.__L__ = L  # [m]
         self.T = L / const.c  # [s] half cavity round-trip time
         if debug == "":
