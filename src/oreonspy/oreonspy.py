@@ -34,17 +34,17 @@ class Cavity:
     simulation_initialized = False
 
     def __init__(self, t_a=0.001, T_a=None, r_a=0.99, R_a=None, r_b=0.999, R_b=None, L=3000.0, debug=""):
-        if not T_a:
+        if T_a is not None:
             self.t_a = np.sqrt(T_a)
         else:
             self.t_a = t_a
         
-        if not R_a:
+        if R_a is not None:
             self.r_a = np.sqrt(R_a)
         else:
             self.r_a = r_a
 
-        if not R_b:
+        if R_b is not None:
             self.r_b = np.sqrt(R_b)
         else:
             self.r_b = r_b
