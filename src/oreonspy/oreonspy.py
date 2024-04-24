@@ -112,7 +112,9 @@ class Cavity:
         print("Finesse: {0:.2f}".format(self.Finesse()))
         print("Gain: {0:.2f}".format(self.gain()))
 
-    def simulation(self, k, f_calc, E_last=0.0j):
+    def simulation(self, k, f_calc, P_in_init=1.):
+        E_in_init = np.sqrt(P_in_init)
+
         # Useful constants
         _2T = 2.0 * self.T
         _N_eff_factor = 2
@@ -186,17 +188,17 @@ class Cavity:
         logger.debug("e2iknL: {0}".format(self.e2iknL))
         logger.debug("rarbne2iknL: {0}".format(self.rarbne2iknL))
 
-        #self.E_in = np.zeros(self.number_of_2T_chains, dtype=np.complex128)
-        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
+        self.frac,_ = np.modf(self.__L__*k/(2.*np.pi))
+        self.phi = 2.*np.pi*self.frac
+        logger.debug("phi: {0}".format(self.phi))
+
+        self.airy_phi = self.E_adiabatic(E_in_init, phi=self.phi)
+
+        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
 
         self.Ze = np.zeros(self.N + 1)
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
-
-        # Smooth raising of the input electric field.
-        # Vector of factors in the range [0; 1] for the first 2T chains.
-        E_in_init = np.linspace(-np.pi/2., np.pi/2., self.number_of_2T_chains)
-        self.E_in_init = (np.sin(E_in_init)+1.)/2.
 
         self.__sim_step_counter__ = 0
 
@@ -217,9 +219,6 @@ class Cavity:
         self.d_zeta_last[chain_idx] = d_zeta
 
         Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
-
-        if self.__sim_step_counter__ < self.number_of_2T_chains:
-            E_in_curr *= self.E_in_init[self.__sim_step_counter__]
 
         logger.debug("Z_last: {0}".format(self.Z_last))
 
@@ -246,8 +245,8 @@ class Cavity:
             * self.E_last[chain_idx]
         )
 
-        if not self.partial_Theta:
-            self.E_last[chain_idx] = res
+        #if not self.partial_Theta:
+        self.E_last[chain_idx] = res
 
         logger.debug("E_last: {0}".format(self.E_last))
         
@@ -258,7 +257,7 @@ class Cavity:
         return res
     
     def sim_reset(self):
-        self.E_last = np.zeros(self.number_of_2T_chains, dtype=np.complex128)  # last term of Eq. 1.55 E(t - 2NT)
+        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.Ze = np.zeros(self.N + 1)
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
@@ -285,6 +284,15 @@ class Cavity:
         plt.title("$\exp(-2ik(n-1)L)$")
         plt.xlabel("n")
         plt.legend()
+
+    def Airy(self, phi):
+        return 1. / (1. + self.F() * np.sin(phi)**2)
+    
+    def E_adiabatic(self, E_in, phi):
+        '''
+         (Rakhmanov Eq. 1.72)
+        '''
+        return self.t_a*E_in/(1.-self.r_a*self.r_b*np.exp(-2.j*phi))
 
 
 class TestCavity(Cavity):
