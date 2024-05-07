@@ -15,7 +15,7 @@ __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
 __maintainer__ = "developer"
 __status__ = "Production"
-__version__ = '2.1.1'
+__version__ = '2.1.2'
 
 
 from scipy import constants as const
@@ -272,6 +272,7 @@ class Cavity:
         print("N: {0}".format(self.N))
 
         print("Number of 2T chains: {0}".format(self.number_of_2T_chains))
+        print("Partial Theta: {0}".format(self.partial_Theta))
 
     def plot_sim_factors(self):
         plt.plot(self.rarbn, label="$(r_a r_b)^n$")
