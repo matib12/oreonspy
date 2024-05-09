@@ -267,6 +267,7 @@ class Cavity:
     def print_sim_params(self):
         print("Theta: {0:.2e} [s]".format(self.Theta))
         print("Cavity RT: {0:.2e} [s]".format(2.0 * self.T))
+        print("Calculation frequency: {0:.2e} [Hz]".format(self.f_calc))
         print("N_eff: {0:.2e}".format(self.N_eff()))
 
         print("N: {0}".format(self.N))
