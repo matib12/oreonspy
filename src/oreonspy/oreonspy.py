@@ -15,12 +15,13 @@ __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
 __maintainer__ = "developer"
 __status__ = "Production"
-__version__ = '2.1.2'
+__version__ = '3.0.0'
 
 
 from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
+from collections import deque
 
 import logging
 
@@ -112,9 +113,13 @@ class Cavity:
         print("Finesse: {0:.2f}".format(self.Finesse()))
         print("Gain: {0:.2f}".format(self.gain()))
 
-    def simulation(self, k, f_calc, P_in_init=1.):
-        E_in_init = np.sqrt(P_in_init)
-
+    def simulation(self, k, f_calc, E_in_init):
+        '''
+        With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
+        k: wave number
+        f_calc: calculation frequency
+        E_in_init: initial electric field amplitude
+        '''
         # Useful constants
         _2T = 2.0 * self.T
         _N_eff_factor = 2
@@ -196,6 +201,9 @@ class Cavity:
 
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
 
+        # Define a list of deque buffers for the electric field
+        self.E_in_buffers = [deque(maxlen=self.N) for _ in range(self.number_of_2T_chains)]
+
         self.Ze = np.zeros(self.N + 1)
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
@@ -204,8 +212,13 @@ class Cavity:
 
         self.simulation_initialized = True
 
-    def sim_step(self, d_zeta, P_in_curr):
-        E_in_curr = np.sqrt(P_in_curr)
+    def sim_step(self, d_zeta, E_in_curr):
+        '''
+        With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
+
+        d_zeta: displacement of the output mirror
+        E_in_curr: current electric input field
+        '''
 
         if self.simulation_initialized == False:
             print("Initialize first")
@@ -216,6 +229,7 @@ class Cavity:
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
         logger.debug("Chain idx: {0}".format(chain_idx))
 
+        # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
         Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
@@ -232,11 +246,15 @@ class Cavity:
         self.Ze = np.add.accumulate(self.Ze)
         logger.debug("Ze: {0}".format(self.Ze))
 
+        # Update input electric field buffer
+        self.E_in_buffers[chain_idx].appendleft(E_in_curr)
+
+        # Calculate the sum
         for idx in np.arange(0, self.N, 1):
             # print("index: {0}".format(idx))
             Sum = Sum + self.rarbne2iknL[idx] * np.exp(
                 self.k2j * self.Ze[idx]
-            ) * E_in_curr
+            ) * self.E_in_buffers[chain_idx][idx]
 
         res = (
             self.t_a * Sum
