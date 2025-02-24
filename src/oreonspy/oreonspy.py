@@ -197,7 +197,7 @@ class Cavity:
         self.phi = 2.*np.pi*self.frac
         logger.debug("phi: {0}".format(self.phi))
 
-        self.airy_phi = self.E_adiabatic(E_in_init, phi=self.phi)
+        self.airy_phi = self.E_adiabatic(E_in_init*np.exp(self.phi*1.j))
 
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
 
@@ -308,11 +308,33 @@ class Cavity:
     def Airy(self, phi):
         return 1. / (1. + self.F() * np.sin(phi)**2)
     
-    def E_adiabatic(self, E_in, phi):
+    def E_adiabatic(self, E_in):
+        """
+        Calculate the adiabatic electric field inside the cavity based on the input electric field.
+
+        This method uses the formula from Rakhmanov Eq. 1.72 to compute the adiabatic 
+        electric field.
+
+        Parameters:
+        -----------
+        E_in : complex
+            The input electric field.
+
+        Returns:
+        --------
+        complex
+            The adiabatic electric field.
+
+        Notes:
+        ------
+        - `self.t_a` is a parameter related to the transmission coefficient.
+        - `self.r_a` and `self.r_b` are parameters related to the reflection coefficients.
+        - The formula involves the absolute value and angle of the input electric field.
+        """
         '''
          (Rakhmanov Eq. 1.72)
         '''
-        return self.t_a*E_in/(1.-self.r_a*self.r_b*np.exp(-2.j*phi))
+        return self.t_a*np.abs(E_in)/(1.-self.r_a*self.r_b*np.exp(-2.j*np.angle(E_in)))
 
 
 class TestCavity(Cavity):
