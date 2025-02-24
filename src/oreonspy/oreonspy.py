@@ -197,12 +197,12 @@ class Cavity:
         self.phi = 2.*np.pi*self.frac
         logger.debug("phi: {0}".format(self.phi))
 
-        self.airy_phi = self.E_adiabatic(E_in_init*np.exp(self.phi*1.j))
+        self.airy_phi = self.E_adiabatic(np.abs(E_in_init), self.phi)
 
-        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
+        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(E_in_init))
 
         # Define a list of deque buffers for the electric field
-        self.E_in_buffers = [deque(maxlen=self.N) for _ in range(self.number_of_2T_chains)]
+        self.E_in_buffers = [deque(E_in_init*np.ones(self.N, dtype=np.complex128), maxlen=self.N) for _ in range(self.number_of_2T_chains)]
 
         self.Ze = np.zeros(self.N + 1)
         self.Z_last = np.zeros(self.number_of_2T_chains)
@@ -308,7 +308,7 @@ class Cavity:
     def Airy(self, phi):
         return 1. / (1. + self.F() * np.sin(phi)**2)
     
-    def E_adiabatic(self, E_in):
+    def E_adiabatic(self, E_in, phi):
         """
         Calculate the adiabatic electric field inside the cavity based on the input electric field.
 
@@ -319,6 +319,9 @@ class Cavity:
         -----------
         E_in : complex
             The input electric field.
+        phi : float
+            The detuning phase is defined by both the length offset and the laser frequency offset: phi = k\Xi + \omega_s T.
+            Where k is the wave number, \Xi is the length offset, \omega_s is the laser frequency offset, and T is the half cavity round-trip time.
 
         Returns:
         --------
@@ -334,7 +337,7 @@ class Cavity:
         '''
          (Rakhmanov Eq. 1.72)
         '''
-        return self.t_a*np.abs(E_in)/(1.-self.r_a*self.r_b*np.exp(-2.j*np.angle(E_in)))
+        return self.t_a*np.abs(E_in)/(1.-self.r_a*self.r_b*np.exp(-2.j*phi))
 
 
 class TestCavity(Cavity):
