@@ -15,12 +15,13 @@ __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
 __maintainer__ = "developer"
 __status__ = "Production"
-__version__ = '2.1.2'
+__version__ = '3.1.0'
 
 
 from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
+from collections import deque
 
 import logging
 
@@ -112,9 +113,13 @@ class Cavity:
         print("Finesse: {0:.2f}".format(self.Finesse()))
         print("Gain: {0:.2f}".format(self.gain()))
 
-    def simulation(self, k, f_calc, P_in_init=1.):
-        E_in_init = np.sqrt(P_in_init)
-
+    def simulation(self, k, f_calc, E_in_init):
+        '''
+        With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
+        k: wave number
+        f_calc: calculation frequency
+        E_in_init: initial electric field amplitude
+        '''
         # Useful constants
         _2T = 2.0 * self.T
         _N_eff_factor = 2
@@ -192,9 +197,12 @@ class Cavity:
         self.phi = 2.*np.pi*self.frac
         logger.debug("phi: {0}".format(self.phi))
 
-        self.airy_phi = self.E_adiabatic(E_in_init, phi=self.phi)
+        self.airy_phi = self.E_adiabatic(np.abs(E_in_init), self.phi)
 
-        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
+        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(E_in_init))
+
+        # Define a list of deque buffers for the electric field
+        self.E_in_buffers = [deque(E_in_init*np.ones(self.N, dtype=np.complex128), maxlen=self.N) for _ in range(self.number_of_2T_chains)]
 
         self.Ze = np.zeros(self.N + 1)
         self.Z_last = np.zeros(self.number_of_2T_chains)
@@ -204,8 +212,13 @@ class Cavity:
 
         self.simulation_initialized = True
 
-    def sim_step(self, d_zeta, P_in_curr):
-        E_in_curr = np.sqrt(P_in_curr)
+    def sim_step(self, d_zeta, E_in_curr):
+        '''
+        With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
+
+        d_zeta: displacement of the output mirror
+        E_in_curr: current electric input field
+        '''
 
         if self.simulation_initialized == False:
             print("Initialize first")
@@ -216,6 +229,7 @@ class Cavity:
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
         logger.debug("Chain idx: {0}".format(chain_idx))
 
+        # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
         Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
@@ -232,11 +246,15 @@ class Cavity:
         self.Ze = np.add.accumulate(self.Ze)
         logger.debug("Ze: {0}".format(self.Ze))
 
+        # Update input electric field buffer
+        self.E_in_buffers[chain_idx].appendleft(E_in_curr)
+
+        # Calculate the sum
         for idx in np.arange(0, self.N, 1):
             # print("index: {0}".format(idx))
             Sum = Sum + self.rarbne2iknL[idx] * np.exp(
                 self.k2j * self.Ze[idx]
-            ) * E_in_curr
+            ) * self.E_in_buffers[chain_idx][idx]
 
         res = (
             self.t_a * Sum
@@ -291,10 +309,35 @@ class Cavity:
         return 1. / (1. + self.F() * np.sin(phi)**2)
     
     def E_adiabatic(self, E_in, phi):
+        """
+        Calculate the adiabatic electric field inside the cavity based on the input electric field.
+
+        This method uses the formula from Rakhmanov Eq. 1.72 to compute the adiabatic 
+        electric field.
+
+        Parameters:
+        -----------
+        E_in : complex
+            The input electric field.
+        phi : float
+            The detuning phase is defined by both the length offset and the laser frequency offset: phi = k\Xi + \omega_s T.
+            Where k is the wave number, \Xi is the length offset, \omega_s is the laser frequency offset, and T is the half cavity round-trip time.
+
+        Returns:
+        --------
+        complex
+            The adiabatic electric field.
+
+        Notes:
+        ------
+        - `self.t_a` is a parameter related to the transmission coefficient.
+        - `self.r_a` and `self.r_b` are parameters related to the reflection coefficients.
+        - The formula involves the absolute value and angle of the input electric field.
+        """
         '''
          (Rakhmanov Eq. 1.72)
         '''
-        return self.t_a*E_in/(1.-self.r_a*self.r_b*np.exp(-2.j*phi))
+        return self.t_a*np.abs(E_in)/(1.-self.r_a*self.r_b*np.exp(-2.j*phi))
 
 
 class TestCavity(Cavity):
