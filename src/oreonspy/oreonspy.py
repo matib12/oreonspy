@@ -256,7 +256,7 @@ class Cavity:
                 self.k2j * self.Ze[idx]
             ) * self.E_in_buffers[chain_idx][idx]
 
-        res = (
+        E = (
             self.t_a * Sum
             + self.rarbne2iknL[self.N]
             * np.exp(self.k2j * self.Ze[self.N])
@@ -264,7 +264,7 @@ class Cavity:
         )
 
         #if not self.partial_Theta:
-        self.E_last[chain_idx] = res
+        self.E_last[chain_idx] = E
 
         logger.debug("E_last: {0}".format(self.E_last))
         
@@ -272,7 +272,7 @@ class Cavity:
 
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
-        return res
+        return E
     
     def sim_reset(self):
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
