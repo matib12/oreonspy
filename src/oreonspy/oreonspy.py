@@ -22,6 +22,8 @@ from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
 from collections import deque
+from numba import njit, types
+from numba import int64, float64, complex128, boolean    # import the types
 
 import logging
 
@@ -30,6 +32,52 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel("INFO")
 
+@njit(float64[:](float64[:]))
+def numba_add_accumulate(A):
+    r = np.empty(len(A), dtype=np.float64)
+    t = 0.
+    for i in range(len(A)):
+        t = np.add(t, A[i])
+        r[i] = t
+    return r
+
+@staticmethod
+@njit(types.Tuple((float64[:], complex128[:], complex128, float64))(float64, complex128, float64[:], float64, boolean, float64, int64, float64[:], complex128[:], complex128[:], complex128, float64, complex128))
+def difficult(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N_pre, N, Ze, E_in_buffers_chain_idx, rarbne2iknL, k2j, t_a, E_last_chain_idx):
+    Z = np.sum(d_zeta_last) + Z_last_chain_idx
+
+    #logger.debug("Z_last: {0}".format(self.Z_last))
+
+    Z_start = Z_last_chain_idx
+    if partial_Theta:
+        Z_start += np.interp(N_pre-N , [0, N_pre], [0, d_zeta])
+        #logger.debug("Z_start: {0}".format(Z_start))
+
+    Ze[1:] = np.linspace(Z_start, Z, N)
+    # logger.debug(self.Ze)
+    Ze = numba_add_accumulate(Ze)
+    #logger.debug("Ze: {0}".format(Ze))
+
+    # Update input electric field buffer
+    E_in_buffers_chain_idx = np.roll(E_in_buffers_chain_idx, 1)
+    E_in_buffers_chain_idx[0] = E_in_curr
+
+    # Calculate the sum
+    Sum = 0.0
+    for idx in np.arange(0, N, 1):
+        # print("index: {0}".format(idx))
+        Sum = Sum + rarbne2iknL[idx] * np.exp(
+            k2j * Ze[idx]
+        ) * E_in_buffers_chain_idx[idx]
+
+    E = (
+        t_a * Sum
+        + rarbne2iknL[N]
+        * np.exp(k2j * Ze[N])
+        * E_last_chain_idx
+    )
+
+    return Ze, E_in_buffers_chain_idx, E, Z
 
 class Cavity:
     simulation_initialized = False
@@ -202,7 +250,7 @@ class Cavity:
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(E_in_init))
 
         # Define a list of deque buffers for the electric field
-        self.E_in_buffers = [deque(E_in_init*np.ones(self.N, dtype=np.complex128), maxlen=self.N) for _ in range(self.number_of_2T_chains)]
+        self.E_in_buffers = [E_in_init*np.ones(self.N, dtype=np.complex128) for _ in range(self.number_of_2T_chains)]
 
         self.Ze = np.zeros(self.N + 1)
         self.Z_last = np.zeros(self.number_of_2T_chains)
@@ -211,6 +259,7 @@ class Cavity:
         self.__sim_step_counter__ = 0
 
         self.simulation_initialized = True
+
 
     def sim_step(self, d_zeta, E_in_curr):
         '''
@@ -232,36 +281,38 @@ class Cavity:
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
-        Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
+        self.Ze, self.E_in_buffers[chain_idx], E, Z = difficult(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.partial_Theta, self.N_pre, self.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.k2j, self.t_a, self.E_last[chain_idx])
+        
+        # Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
 
-        logger.debug("Z_last: {0}".format(self.Z_last))
+        # logger.debug("Z_last: {0}".format(self.Z_last))
 
-        Z_start = self.Z_last[chain_idx]
-        if self.partial_Theta:
-            Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
-            logger.debug("Z_start: {0}".format(Z_start))
+        # Z_start = self.Z_last[chain_idx]
+        # if self.partial_Theta:
+        #     Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
+        #     logger.debug("Z_start: {0}".format(Z_start))
 
-        self.Ze[1:] = np.linspace(Z_start, Z, self.N)
-        # logger.debug(self.Ze)
-        self.Ze = np.add.accumulate(self.Ze)
-        logger.debug("Ze: {0}".format(self.Ze))
+        # self.Ze[1:] = np.linspace(Z_start, Z, self.N)
+        # # logger.debug(self.Ze)
+        # self.Ze = np.add.accumulate(self.Ze)
+        # logger.debug("Ze: {0}".format(self.Ze))
 
-        # Update input electric field buffer
-        self.E_in_buffers[chain_idx].appendleft(E_in_curr)
+        # # Update input electric field buffer
+        # self.E_in_buffers[chain_idx].appendleft(E_in_curr)
 
-        # Calculate the sum
-        for idx in np.arange(0, self.N, 1):
-            # print("index: {0}".format(idx))
-            Sum = Sum + self.rarbne2iknL[idx] * np.exp(
-                self.k2j * self.Ze[idx]
-            ) * self.E_in_buffers[chain_idx][idx]
+        # # Calculate the sum
+        # for idx in np.arange(0, self.N, 1):
+        #     # print("index: {0}".format(idx))
+        #     Sum = Sum + self.rarbne2iknL[idx] * np.exp(
+        #         self.k2j * self.Ze[idx]
+        #     ) * self.E_in_buffers[chain_idx][idx]
 
-        E = (
-            self.t_a * Sum
-            + self.rarbne2iknL[self.N]
-            * np.exp(self.k2j * self.Ze[self.N])
-            * self.E_last[chain_idx]
-        )
+        # E = (
+        #     self.t_a * Sum
+        #     + self.rarbne2iknL[self.N]
+        #     * np.exp(self.k2j * self.Ze[self.N])
+        #     * self.E_last[chain_idx]
+        # )
 
         #if not self.partial_Theta:
         self.E_last[chain_idx] = E
