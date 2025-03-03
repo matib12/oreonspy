@@ -21,7 +21,6 @@ __version__ = '3.1.0'
 from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
-from collections import deque
 from numba import njit, types
 from numba import int64, float64, complex128, boolean    # import the types
 
@@ -37,12 +36,12 @@ def numba_add_accumulate(A):
     r = np.empty(len(A), dtype=np.float64)
     t = 0.
     for i in range(len(A)):
-        t = np.add(t, A[i])
+        t += A[i]
         r[i] = t
     return r
 
 @staticmethod
-@njit(types.Tuple((float64[:], complex128[:], complex128, float64))(float64, complex128, float64[:], float64, boolean, float64, int64, float64[:], complex128[:], complex128[:], complex128, float64, complex128))
+@njit(types.Tuple((float64[:], complex128[:], complex128, float64))(float64, complex128, float64[:], float64, boolean, float64, int64, float64[:], complex128[:], complex128[:], complex128, float64, complex128)) #,fastmath=True)  # Check if fastmath=True is correct
 def difficult(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N_pre, N, Ze, E_in_buffers_chain_idx, rarbne2iknL, k2j, t_a, E_last_chain_idx):
     Z = np.sum(d_zeta_last) + Z_last_chain_idx
 
@@ -53,7 +52,7 @@ def difficult(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N
         Z_start += np.interp(N_pre-N , [0, N_pre], [0, d_zeta])
         #logger.debug("Z_start: {0}".format(Z_start))
 
-    Ze[1:] = np.linspace(Z_start, Z, N)
+    Ze[1:] = np.linspace(Z_start, Z, num=N)
     # logger.debug(self.Ze)
     Ze = numba_add_accumulate(Ze)
     #logger.debug("Ze: {0}".format(Ze))
@@ -64,7 +63,7 @@ def difficult(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N
 
     # Calculate the sum
     Sum = 0.0
-    for idx in np.arange(0, N, 1):
+    for idx in range(N):
         # print("index: {0}".format(idx))
         Sum = Sum + rarbne2iknL[idx] * np.exp(
             k2j * Ze[idx]
@@ -252,9 +251,9 @@ class Cavity:
         # Define a list of deque buffers for the electric field
         self.E_in_buffers = [E_in_init*np.ones(self.N, dtype=np.complex128) for _ in range(self.number_of_2T_chains)]
 
-        self.Ze = np.zeros(self.N + 1)
-        self.Z_last = np.zeros(self.number_of_2T_chains)
-        self.d_zeta_last = np.zeros(self.number_of_2T_chains)
+        self.Ze = np.zeros(self.N + 1, dtype=np.float64)
+        self.Z_last = np.zeros(self.number_of_2T_chains, dtype=np.float64)
+        self.d_zeta_last = np.zeros(self.number_of_2T_chains, dtype=np.float64)
 
         self.__sim_step_counter__ = 0
 
@@ -273,15 +272,13 @@ class Cavity:
             print("Initialize first")
             return
 
-        Sum = 0.0
-
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
-        logger.debug("Chain idx: {0}".format(chain_idx))
+        #logger.debug("Chain idx: {0}".format(chain_idx))
 
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
-        self.Ze, self.E_in_buffers[chain_idx], E, Z = difficult(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.partial_Theta, self.N_pre, self.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.k2j, self.t_a, self.E_last[chain_idx])
+        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = difficult(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.partial_Theta, self.N_pre, self.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.k2j, self.t_a, self.E_last[chain_idx])
         
         # Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
 
@@ -317,9 +314,7 @@ class Cavity:
         #if not self.partial_Theta:
         self.E_last[chain_idx] = E
 
-        logger.debug("E_last: {0}".format(self.E_last))
-        
-        self.Z_last[chain_idx] = Z
+        #logger.debug("E_last: {0}".format(self.E_last))
 
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
