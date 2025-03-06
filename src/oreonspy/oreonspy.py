@@ -342,7 +342,18 @@ class Cavity:
     
     def xml_save(self, filename):
         '''
-        Save the parameters of the Cavity object to an XML file.
+        The method saves the following parameters of the Cavity object if they exist: r_a, r_b, t_a, __L__, T.
+
+        Parameters:
+        --------
+        filename (str): The name of the file to save the XML data. If the filename does not end with ".xml", it will be appended automatically.
+
+        Example:
+        --------
+        cavity = Cavity(r_a = 1.0, r_b = 2.0, t_a = 3.0, L = 4.0)
+        cavity.xml_save("cavity_parameters.xml")
+
+        This will create an XML file named "cavity_parameters.xml" with the parameters of the Cavity object.
         '''
         root = ET.Element("Cavity")
 
@@ -371,6 +382,17 @@ class Cavity:
     def xml_load(self, filename):
         '''
         Load the parameters of the Cavity object from an XML file.
+
+        Parameters:
+        --------
+        filename (str): The path to the XML file containing the parameters.
+
+        Example:
+        --------
+        cavity = Cavity()
+        cavity.xml_load('path/to/parameters.xml')
+
+        This will create a Cavity classobject named "cavity" with the parameters from the XML file "parameters.xml".
         '''
         # Load the XML file
         try:
