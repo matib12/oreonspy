@@ -22,6 +22,7 @@ from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
 from collections import deque
+import xml.etree.ElementTree as ET
 
 import logging
 
@@ -338,7 +339,64 @@ class Cavity:
          (Rakhmanov Eq. 1.72)
         '''
         return self.t_a*np.abs(E_in)/(1.-self.r_a*self.r_b*np.exp(-2.j*phi))
+    
+    def xml_save(self, filename):
+        '''
+        Save the parameters of the Cavity object to an XML file.
+        '''
+        root = ET.Element("Cavity")
 
+        # Parameters to save
+        params = ["r_a", "r_b", "t_a", "__L__", "T"]
+
+        # Add parameters as sub-elements
+        cavity = {}
+        for par in params:
+            if hasattr(self, par):
+                cavity[par] = getattr(self, par)
+
+        for key, value in cavity.items():
+            param = ET.SubElement(root, key)
+            param.text = str(value)
+
+        # Create the tree and write to an XML file
+        tree = ET.ElementTree(root)
+        try:
+            tree.write(filename + ".xml")
+        except Exception as e:
+            logger.error(f"Error writing the XML file: {e}")
+
+    def xml_load(self, filename):
+        '''
+        Load the parameters of the Cavity object from an XML file.
+        '''
+        # Load the XML file
+        try:
+            tree = ET.parse(filename)
+            root = tree.getroot()
+        except ET.ParseError as e:
+            logger.error(f"Error parsing the XML file: {e}")
+            return
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {e}")
+            return
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+            return
+
+        # Extract parameters from the XML
+        params = {}
+        for param in root:
+            params[param.tag] = float(param.text)
+
+        # Create a new Cavity object with the loaded parameters
+        loaded_cavity = Cavity(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=False)
+
+        # Print the loaded parameters to verify
+        loaded_cavity.print_params()
+        
+        self = loaded_cavity
+    
 
 class TestCavity(Cavity):
     def __init__(self, debug=""):
