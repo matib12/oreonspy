@@ -362,7 +362,9 @@ class Cavity:
         # Create the tree and write to an XML file
         tree = ET.ElementTree(root)
         try:
-            tree.write(filename + ".xml")
+            if not filename.endswith(".xml"):
+                filename += ".xml"
+            tree.write(filename)
         except Exception as e:
             logger.error(f"Error writing the XML file: {e}")
 
