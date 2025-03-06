@@ -414,12 +414,10 @@ class Cavity:
             params[param.tag] = float(param.text)
 
         # Create a new Cavity object with the loaded parameters
-        loaded_cavity = Cavity(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=False)
+        self.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=False)
 
         # Print the loaded parameters to verify
-        loaded_cavity.print_params()
-        
-        self = loaded_cavity
+        self.print_params()
     
 
 class TestCavity(Cavity):
