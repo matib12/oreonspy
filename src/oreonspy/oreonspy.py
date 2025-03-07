@@ -9,13 +9,13 @@
 __authors__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
 __contact__ = "mateusz.bawaj@unipg.it"
 __credits__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
-__date__ = "2024/04/19"
+__date__ = "2025/03/07"
 __deprecated__ = False
 __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
 __maintainer__ = "developer"
 __status__ = "Production"
-__version__ = '3.1.0'
+__version__ = '3.2.0'
 
 
 from scipy import constants as const
