@@ -293,9 +293,8 @@ class Cavity:
 
         d_zeta_tot = d_zeta - d_zeta_in
         self.Ze_in += d_zeta_in
-        self.phi_in_mirr = np.exp(-2.j*self.k*self.Ze_in)
         #phase = self.phi_in_mirr
-        E_in_laser = E_in_laser * np.exp(-2.j*self.k*self.Ze_in)
+        E_in_laser = E_in_laser * np.exp(self.k2j*self.Ze_in)
         E = self.__sim_step__(d_zeta=d_zeta_tot, E_in_curr=E_in_laser)
         E_ref = self.E_ref(phase=1., E=E, E_in_laser=E_in_laser)
         return E, E_ref
