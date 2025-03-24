@@ -228,24 +228,24 @@ class Cavity:
         Sum = 0.0
 
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
-        logger.debug("Chain idx: {0}".format(chain_idx))
+        #logger.debug("Chain idx: {0}".format(chain_idx))
 
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
         Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
 
-        logger.debug("Z_last: {0}".format(self.Z_last))
+        #logger.debug("Z_last: {0}".format(self.Z_last))
 
         Z_start = self.Z_last[chain_idx]
         if self.partial_Theta:
             Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
-            logger.debug("Z_start: {0}".format(Z_start))
+            #logger.debug("Z_start: {0}".format(Z_start))
 
         self.Ze[1:] = np.linspace(Z_start, Z, self.N)
         # logger.debug(self.Ze)
         self.Ze = np.add.accumulate(self.Ze)
-        logger.debug("Ze: {0}".format(self.Ze))
+        #logger.debug("Ze: {0}".format(self.Ze))
 
         # Update input electric field buffer
         self.E_in_buffers[chain_idx].appendleft(E_in_curr)
@@ -267,7 +267,7 @@ class Cavity:
         #if not self.partial_Theta:
         self.E_last[chain_idx] = E
 
-        logger.debug("E_last: {0}".format(self.E_last))
+        #logger.debug("E_last: {0}".format(self.E_last))
         
         self.Z_last[chain_idx] = Z
 
@@ -324,6 +324,7 @@ class Cavity:
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.Ze = np.zeros(self.N + 1)
+        self.Ze_in = 0.
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
         self.__sim_step_counter__ = 0
         
