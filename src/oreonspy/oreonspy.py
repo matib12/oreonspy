@@ -9,7 +9,7 @@
 __authors__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
 __contact__ = "mateusz.bawaj@unipg.it"
 __credits__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
-__date__ = "2024/04/19"
+__date__ = "2025/03/25"
 __deprecated__ = False
 __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
@@ -208,19 +208,20 @@ class Cavity:
         self.Ze = np.zeros(self.N + 1)
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
+        self.Ze_in = 0.
 
         self.__sim_step_counter__ = 0
 
         self.simulation_initialized = True
-
-    def sim_step(self, d_zeta, E_in_curr):
+    
+    def __sim_step__(self, d_zeta=0., E_in_curr=1.):
         '''
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
 
         d_zeta: displacement of the output mirror
         E_in_curr: current electric input field
         '''
-
+        
         if self.simulation_initialized == False:
             print("Initialize first")
             return
@@ -228,24 +229,24 @@ class Cavity:
         Sum = 0.0
 
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
-        logger.debug("Chain idx: {0}".format(chain_idx))
+        #logger.debug("Chain idx: {0}".format(chain_idx))
 
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
         Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
 
-        logger.debug("Z_last: {0}".format(self.Z_last))
+        #logger.debug("Z_last: {0}".format(self.Z_last))
 
         Z_start = self.Z_last[chain_idx]
         if self.partial_Theta:
             Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
-            logger.debug("Z_start: {0}".format(Z_start))
+            #logger.debug("Z_start: {0}".format(Z_start))
 
         self.Ze[1:] = np.linspace(Z_start, Z, self.N)
         # logger.debug(self.Ze)
         self.Ze = np.add.accumulate(self.Ze)
-        logger.debug("Ze: {0}".format(self.Ze))
+        #logger.debug("Ze: {0}".format(self.Ze))
 
         # Update input electric field buffer
         self.E_in_buffers[chain_idx].appendleft(E_in_curr)
@@ -267,22 +268,66 @@ class Cavity:
         #if not self.partial_Theta:
         self.E_last[chain_idx] = E
 
-        logger.debug("E_last: {0}".format(self.E_last))
+        #logger.debug("E_last: {0}".format(self.E_last))
         
         self.Z_last[chain_idx] = Z
 
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
         return E
+        
+    def sim_step(self, E_in_laser=1., d_zeta_in=0., d_zeta=0.):
+        '''
+        Simulate the electric field propagation through a two-mirror cavity.
+        This method calculates the electric field after propagating through a 
+        two-mirror cavity with given initial electric field and mirror displacements.
+
+        Parameters:
+        -----------
+        E_in_laser : float, optional
+            The initial electric field amplitude emitted by the laser and referred to the external reference frame (default is 1.0).
+        d_zeta_1 : float, optional
+            The displacement of the input mirror (default is 0.0).
+        d_zeta_2 : float, optional
+            The displacement of the back mirror (default is 0.0).
+
+        Returns:
+        --------
+        tuple:
+            - E : complex
+            The electric field inside the cavity after propagation.
+            - E_ref_val : complex
+            The reflected electric field from the cavity.
+
+        Notes:
+        ------
+        - `self.k` is the wave number.
+        - `self.Ze_in` is the sum of previous mirror displacements.
+        '''
+
+        # Total cavity length
+        d_zeta_tot = d_zeta - d_zeta_in
+
+        # Position of the input mirror
+        self.Ze_in += d_zeta_in
+
+        # Electric field on the input mirror
+        E_in_laser = E_in_laser * np.exp(self.k2j*self.Ze_in)
+
+        E = self.__sim_step__(d_zeta=d_zeta_tot, E_in_curr=E_in_laser)
+
+        E_ref_val = self.E_ref(E=E, E_in_laser=E_in_laser, Ze_in=self.Ze_in)
+
+        return E, E_ref_val
     
     def sim_reset(self):
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.Ze = np.zeros(self.N + 1)
+        self.Ze_in = 0.
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
         self.__sim_step_counter__ = 0
         
-
     def print_sim_params(self):
         print("Theta: {0:.2e} [s]".format(self.Theta))
         print("Cavity RT: {0:.2e} [s]".format(2.0 * self.T))
@@ -416,6 +461,26 @@ class Cavity:
         # Reinitialize the Cavity object with the loaded parameters
         self.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=False)
     
+    def E_ref(self, E, E_in_laser=1., Ze_in=0.):
+        """
+        TODO: verify what is the phase parameter
+        Calculate the reflected electric field (E_ref) based on the input electric field (E) and the input laser electric field (E_in_laser).
+
+        Parameters:
+        E (float): The input electric field.
+        E_in_laser (float, optional): The input laser electric field. Default is 1.
+
+        Returns:
+        float: The reflected electric field (E_ref).
+
+        Notes:
+        This function uses the formula from Eq 1.48:
+
+        where:
+        - self.r_a and self.t_a are predefined reflection and transmission coefficients, respectively.
+        """
+        return np.exp(self.k2j*Ze_in) * ((self.r_a**2 + self.t_a**2) * E_in_laser - self.t_a * E) / self.r_a
+
 
 class TestCavity(Cavity):
     def __init__(self, debug=""):
