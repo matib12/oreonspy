@@ -277,7 +277,6 @@ class Cavity:
         
     def sim_step(self, E_in_laser=1., d_zeta_in=0., d_zeta=0.):
         '''
-        TODO: Why E_ref function is called with phase=1.0?
         Simulate the electric field propagation through a two-mirror cavity.
         This method calculates the electric field after propagating through a 
         two-mirror cavity with given initial electric field and mirror displacements.
