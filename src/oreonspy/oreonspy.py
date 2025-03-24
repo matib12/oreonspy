@@ -277,27 +277,48 @@ class Cavity:
         
     def sim_step(self, E_in_laser=1., d_zeta_in=0., d_zeta=0.):
         '''
+        TODO: Why E_ref function is called with phase=1.0?
         Simulate the electric field propagation through a two-mirror cavity.
         This method calculates the electric field after propagating through a 
         two-mirror cavity with given initial electric field and mirror displacements.
-        E_in_curr : float, optional
-            The initial electric field amplitude (default is 1.0).
+
+        Parameters:
+        -----------
+        E_in_laser : float, optional
+            The initial electric field amplitude emitted by the laser and referred to the external reference frame (default is 1.0).
         d_zeta_1 : float, optional
-            The displacement of the first mirror (default is 0.0).
+            The displacement of the input mirror (default is 0.0).
         d_zeta_2 : float, optional
-            The displacement of the second mirror (default is 0.0).
+            The displacement of the back mirror (default is 0.0).
+
+        Returns:
+        --------
+        tuple:
+            - E : complex
+            The electric field inside the cavity after propagation.
+            - E_ref_val : complex
+            The reflected electric field from the cavity.
+
+        Notes:
+        ------
         - `self.k` is the wave number.
         - `self.Ze_in` is the sum of previous mirror displacements.
-        - `self.phi_in_mirr` is the phase computed on the basis of the sum of previous mirror displacements.
         '''
 
+        # Total cavity length
         d_zeta_tot = d_zeta - d_zeta_in
+
+        # Position of the input mirror
         self.Ze_in += d_zeta_in
-        #phase = self.phi_in_mirr
+
+        # Electric field on the input mirror
         E_in_laser = E_in_laser * np.exp(self.k2j*self.Ze_in)
+
         E = self.__sim_step__(d_zeta=d_zeta_tot, E_in_curr=E_in_laser)
-        E_ref = self.E_ref(phase=1., E=E, E_in_laser=E_in_laser)
-        return E, E_ref
+
+        E_ref_val = self.E_ref(phase=1., E=E, E_in_laser=E_in_laser)
+
+        return E, E_ref_val
     
     def sim_reset(self):
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
@@ -366,6 +387,7 @@ class Cavity:
 
     def E_ref(self, phase, E, E_in_laser=1.):
         """
+        TODO: verify what is the phase parameter
         Calculate the reflected electric field (E_ref) based on the input electric field (E) and the input laser electric field (E_in_laser).
 
         Parameters:
@@ -379,10 +401,9 @@ class Cavity:
         This function uses the formula from Eq 1.48:
 
         where:
-        - phi_in_mirr is the phase related to the displacement of the input mirror.
-        - r_a and t_a are predefined reflection and transmission coefficients, respectively.
+        - self.r_a and self.t_a are predefined reflection and transmission coefficients, respectively.
         """
-        return phase * ((self.r_a**2 + self.t_a**2) * E_in_laser - self.t_a * E) / self.r_a #Eq 1.48
+        return phase * ((self.r_a**2 + self.t_a**2) * E_in_laser - self.t_a * E) / self.r_a
 
 class TestCavity(Cavity):
     def __init__(self, debug=""):
