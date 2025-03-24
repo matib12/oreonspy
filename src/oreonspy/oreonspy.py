@@ -385,7 +385,7 @@ class Cavity:
         '''
         return self.t_a*np.abs(E_in)/(1.-self.r_a*self.r_b*np.exp(-2.j*phi))
 
-    def E_ref(self, phase, E, E_in_laser=1.):
+    def E_ref(self, E, E_in_laser=1., Ze_in=0.):
         """
         TODO: verify what is the phase parameter
         Calculate the reflected electric field (E_ref) based on the input electric field (E) and the input laser electric field (E_in_laser).
@@ -403,7 +403,7 @@ class Cavity:
         where:
         - self.r_a and self.t_a are predefined reflection and transmission coefficients, respectively.
         """
-        return phase * ((self.r_a**2 + self.t_a**2) * E_in_laser - self.t_a * E) / self.r_a
+        return np.exp(self.k2j*Ze_in) * ((self.r_a**2 + self.t_a**2) * E_in_laser - self.t_a * E) / self.r_a
 
 class TestCavity(Cavity):
     def __init__(self, debug=""):
