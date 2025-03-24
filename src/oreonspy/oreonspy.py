@@ -316,7 +316,7 @@ class Cavity:
 
         E = self.__sim_step__(d_zeta=d_zeta_tot, E_in_curr=E_in_laser)
 
-        E_ref_val = self.E_ref(phase=1., E=E, E_in_laser=E_in_laser)
+        E_ref_val = self.E_ref(E=E, E_in_laser=E_in_laser, Ze_in=self.Ze_in)
 
         return E, E_ref_val
     
