@@ -9,7 +9,7 @@
 __authors__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
 __contact__ = "mateusz.bawaj@unipg.it"
 __credits__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
-__date__ = "2024/04/19"
+__date__ = "2025/03/25"
 __deprecated__ = False
 __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
@@ -327,7 +327,6 @@ class Cavity:
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
         self.__sim_step_counter__ = 0
         
-
     def print_sim_params(self):
         print("Theta: {0:.2e} [s]".format(self.Theta))
         print("Cavity RT: {0:.2e} [s]".format(2.0 * self.T))
@@ -404,6 +403,7 @@ class Cavity:
         - self.r_a and self.t_a are predefined reflection and transmission coefficients, respectively.
         """
         return np.exp(self.k2j*Ze_in) * ((self.r_a**2 + self.t_a**2) * E_in_laser - self.t_a * E) / self.r_a
+
 
 class TestCavity(Cavity):
     def __init__(self, debug=""):
