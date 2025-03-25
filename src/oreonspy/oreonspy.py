@@ -22,6 +22,7 @@ from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
 from collections import deque
+import xml.etree.ElementTree as ET
 
 import logging
 
@@ -383,7 +384,83 @@ class Cavity:
          (Rakhmanov Eq. 1.72)
         '''
         return self.t_a*np.abs(E_in)/(1.-self.r_a*self.r_b*np.exp(-2.j*phi))
+    
+    def xml_save(self, filename):
+        '''
+        The method saves the following parameters of the Cavity object if they exist: r_a, r_b, t_a, __L__, T.
 
+        Parameters:
+        --------
+        filename (str): The name of the file to save the XML data. If the filename does not end with ".xml", it will be appended automatically.
+
+        Example:
+        --------
+        cavity = Cavity(r_a = 1.0, r_b = 2.0, t_a = 3.0, L = 4.0)
+        cavity.xml_save("cavity_parameters.xml")
+
+        This will create an XML file named "cavity_parameters.xml" with the parameters of the Cavity object.
+        '''
+        root = ET.Element("Cavity")
+
+        # Parameters to save
+        params = ["r_a", "r_b", "t_a", "__L__", "T"]
+
+        # Add parameters as sub-elements
+        cavity = {}
+        for par in params:
+            if hasattr(self, par):
+                cavity[par] = getattr(self, par)
+
+        for key, value in cavity.items():
+            param = ET.SubElement(root, key)
+            param.text = str(value)
+
+        # Create the tree and write to an XML file
+        tree = ET.ElementTree(root)
+        try:
+            if not filename.endswith(".xml"):
+                filename += ".xml"
+            tree.write(filename)
+        except Exception as e:
+            logger.error(f"Error writing the XML file: {e}")
+
+    def xml_load(self, filename):
+        '''
+        Load the parameters of the Cavity object from an XML file.
+
+        Parameters:
+        --------
+        filename (str): The path to the XML file containing the parameters.
+
+        Example:
+        --------
+        cavity = Cavity()
+        cavity.xml_load('path/to/parameters.xml')
+
+        This will create a Cavity classobject named "cavity" with the parameters from the XML file "parameters.xml".
+        '''
+        # Load the XML file
+        try:
+            tree = ET.parse(filename)
+            root = tree.getroot()
+        except ET.ParseError as e:
+            logger.error(f"Error parsing the XML file: {e}")
+            return
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {e}")
+            return
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+            return
+
+        # Extract parameters from the XML
+        params = {}
+        for param in root:
+            params[param.tag] = float(param.text)
+
+        # Reinitialize the Cavity object with the loaded parameters
+        self.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=False)
+    
     def E_ref(self, E, E_in_laser=1., Ze_in=0.):
         """
         TODO: verify what is the phase parameter
