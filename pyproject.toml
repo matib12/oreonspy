@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "oreonspy"
-version = "3.1.0"
+version = "3.2.0"
 authors = [
   { name="Andrea Svizzeretto", email="andrea.svizzeretto@studenti.unipg.it" },
   { name="Mateusz Bawaj", email="mateusz.bawaj@unipg.it" },
