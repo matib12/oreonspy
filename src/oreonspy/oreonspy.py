@@ -6,18 +6,6 @@
 # - Andrea Svizzeretto, <andrea.svizzeretto@studenti.unipg.it>
 # - Mateusz Bawaj, <mateusz.bawaj@unipg.it>
 
-__authors__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
-__contact__ = "mateusz.bawaj@unipg.it"
-__credits__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
-__date__ = "2025/03/25"
-__deprecated__ = False
-__email__ =  "mateusz.bawaj@unipg.it"
-__license__ = "GPLv3"
-__maintainer__ = "developer"
-__status__ = "Production"
-__version__ = '3.1.0'
-
-
 from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
