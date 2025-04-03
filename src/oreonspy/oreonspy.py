@@ -122,6 +122,8 @@ class Cavity:
         self.number_of_2T_chains = 1
         self.N = 1
 
+        self.E_in_init = E_in_init
+
         self.N_pre = 1.0 / (f_calc * _2T)
         logger.debug("N_pre: {0}".format(self.N_pre))
 
@@ -188,7 +190,7 @@ class Cavity:
 
         self.airy_phi = self.E_adiabatic(np.abs(E_in_init), self.phi)
 
-        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(E_in_init))
+        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
 
         # Define a list of deque buffers for the electric field
         self.E_in_buffers = [deque(E_in_init*np.ones(self.N, dtype=np.complex128), maxlen=self.N) for _ in range(self.number_of_2T_chains)]
@@ -309,7 +311,7 @@ class Cavity:
         return E, E_ref_val
     
     def sim_reset(self):
-        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
+        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.Ze = np.zeros(self.N + 1)
         self.Ze_in = 0.
