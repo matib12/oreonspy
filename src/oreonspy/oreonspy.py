@@ -188,7 +188,7 @@ class Cavity:
         self.phi = 2.*np.pi*self.frac
         logger.debug("phi: {0}".format(self.phi))
 
-        self.airy_phi = self.E_adiabatic(np.abs(E_in_init), self.phi)
+        self.airy_phi = self.E_adiabatic(E_in_init, self.phi)
 
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
 
@@ -500,7 +500,8 @@ class ArmCavity(Cavity):
         #L = np.ceil(3000.0/lambd)*lambd - 0.05*lambd
         L = 3000.0
 
-        Cavity.__init__(self, T_a=T_a, R_a=R_a, R_b=R_b, L=L, debug=debug)
+        # Values from Andrea's thesis
+        Cavity.__init__(self, t_a=0.01377, r_a=0.986, r_b=0.99999, L=L, debug=debug)
 
 
 class FilterCavity(Cavity):
