@@ -41,6 +41,8 @@ class Cavity:
         
         self.__L__ = L  # [m]
         self.T = L / const.c  # [s] half cavity round-trip time
+
+        self.debug = debug
         if debug == "":
             logger.disabled = True
             pass
@@ -449,7 +451,7 @@ class Cavity:
             params[param.tag] = float(param.text)
 
         # Reinitialize the Cavity object with the loaded parameters
-        self.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=False)
+        self.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=self.debug)
     
     def E_ref(self, E, E_in_laser=1., Ze_in=0.):
         """
