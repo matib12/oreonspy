@@ -23,7 +23,7 @@ logger.setLevel("INFO")
 class Cavity:
     simulation_initialized = False
 
-    def __init__(self, t_a=0.001, T_a=None, r_a=0.99, R_a=None, r_b=0.999, R_b=None, L=3000.0, debug=""):
+    def __init__(self, t_a=0.001, T_a=None, r_a=0.99, R_a=None, r_b=0.999, R_b=None, L=3000.0, debug=None, log_file=None):
         if T_a is not None:
             self.t_a = np.sqrt(T_a)
         else:
@@ -43,12 +43,26 @@ class Cavity:
         self.T = L / const.c  # [s] half cavity round-trip time
 
         self.debug = debug
-        if debug == "":
+        if debug is None:
             logger.disabled = True
             pass
         else:
-            logger.disabled = False
-            logger.setLevel(debug)
+            if log_file is not None:
+                logger.disabled = False
+                logger.setLevel(debug)
+                file_handler = logging.FileHandler(log_file)
+                file_handler.setLevel(debug)
+                formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+                file_handler.setFormatter(formatter)
+                logger.addHandler(file_handler)
+            
+            logger.debug("Cavity initialized with parameters:")
+            logger.debug("t_a: {0}".format(self.t_a))
+            logger.debug("r_a: {0}".format(self.r_a))
+            logger.debug("r_b: {0}".format(self.r_b))
+            logger.debug("L: {0}".format(self.__L__))
+            logger.debug("T: {0}".format(self.T))
+            logger.debug("Debug level: {0}".format(debug))
             
 
     def cavity_loss(self):
@@ -111,6 +125,10 @@ class Cavity:
         f_calc: calculation frequency
         E_in_init: initial electric field amplitude
         '''
+        logger.debug("Simulation started")
+        logger.debug("k: {0}".format(k))
+        logger.debug("f_calc: {0}".format(f_calc))
+        logger.debug("E_in_init: {0}".format(E_in_init))
         # Useful constants
         _2T = 2.0 * self.T
         _N_eff_factor = 2
