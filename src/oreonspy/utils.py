@@ -2,8 +2,6 @@ import numpy as np
 from scipy import constants as const
 import matplotlib.pyplot as plt
 
-import gc
-
 # Wavelength of the laser light
 lambd = 1064e-9  # [m]
 
@@ -131,13 +129,13 @@ def optimal_sampling_frequency(cavity, critical_velocity_factor):
 
 
 def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons=None, s_ref=None, ph_ref=None, title=None, save=False):
-    
-    n_of_sublots = 5 if s_ref is not None or ph_ref is not None else 4
+    plt.ioff()  # Disable interactive mode for correct memory management in iPython
 
-    #fig = plt.figure()
+    n_of_sublots = 5 if s_ref is not None or ph_ref is not None else 4
+    
     fig, ax = plt.subplots(n_of_sublots, 1, figsize=(10, 10))
     fig.tight_layout()
-    #ax = fig.add_subplot(111)
+
     plot_idx = 0
     ax[0].plot(s, label="Cav mag")
     ax[0].grid()
@@ -149,7 +147,6 @@ def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons
     ax2.tick_params(axis='y')
     plot_idx += 1
 
-    #ax[1] = fig.add_subplot(212)
     ax[1].plot(pdh, label="PDH", c="darkred")
     ax[1].set_ylabel("PDH")
     ax[1].grid()
@@ -216,13 +213,9 @@ def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons
         else:
             title = title.replace(" ", "_")
         fig.savefig("../optical_cavities_testset/"+title+".png", dpi=300, bbox_inches='tight')
-
+        
         plt.cla()
-        plt.close('all')
-        del fig, ax, ax2, ax4
-        gc.collect()
+        plt.close(fig)
     else:
         plt.show()
-
-
-    return fig
+        return fig
