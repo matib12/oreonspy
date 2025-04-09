@@ -14,10 +14,10 @@ import xml.etree.ElementTree as ET
 
 import logging
 
-logging.basicConfig(level=logging.INFO)
+#logging.basicConfig(level=logging.INFO)
 
-logger = logging.getLogger(__name__)
-logger.setLevel("INFO")
+logger = logging.getLogger(__name__.split(".")[-1])
+logger.setLevel(logging.INFO)
 
 
 class Cavity:
@@ -50,11 +50,11 @@ class Cavity:
             if log_file is not None:
                 logger.disabled = False
                 logger.setLevel(debug)
-                file_handler = logging.FileHandler(log_file)
-                file_handler.setLevel(debug)
+                self.file_handler = logging.FileHandler(log_file)
+                self.file_handler.setLevel(debug)
                 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-                file_handler.setFormatter(formatter)
-                logger.addHandler(file_handler)
+                self.file_handler.setFormatter(formatter)
+                logger.addHandler(self.file_handler)
             
             logger.debug("Cavity initialized with parameters:")
             logger.debug("t_a: {0}".format(self.t_a))
@@ -209,8 +209,14 @@ class Cavity:
         logger.debug("phi: {0}".format(self.phi))
 
         self.airy_phi = self.E_adiabatic(E_in_init, self.phi)
+        logger.debug("E_adiabatic cplx: {0}".format(self.airy_phi))
+        logger.debug("E_adiabatic abs : {0}".format(np.abs(self.airy_phi)))
+        logger.debug("E_adiabatic angl: {0}".format(np.angle(self.airy_phi)))
 
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
+        logger.debug("E_last cplx: {0}".format(self.E_last))
+        logger.debug("E_last abs : {0}".format(np.abs(self.E_last)))
+        logger.debug("E_last angl: {0}".format(np.angle(self.E_last)))
 
         # Define a list of deque buffers for the electric field
         self.E_in_buffers = [deque(E_in_init*np.ones(self.N, dtype=np.complex128), maxlen=self.N) for _ in range(self.number_of_2T_chains)]
@@ -491,6 +497,13 @@ class Cavity:
         """
         return np.exp(self.k2j*Ze_in) * ((self.r_a**2 + self.t_a**2) * E_in_laser - self.t_a * E) / self.r_a
 
+    def close(self):
+        '''
+        Close the file handler if it exists and remove it from the logger.
+        This method assures correct writing to disctinct logs.
+        '''
+        self.file_handler.close()
+        logger.removeHandler(self.file_handler)
 
 class TestCavity(Cavity):
     def __init__(self, debug=""):
