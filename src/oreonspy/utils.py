@@ -129,7 +129,10 @@ def optimal_sampling_frequency(cavity, critical_velocity_factor):
 
 
 def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons=None, s_ref=None, ph_ref=None, title=None, save=False):
-    plt.ioff()  # Disable interactive mode for correct memory management in iPython
+    if save == True:
+        plt.ioff()  # Disable interactive mode for correct memory management in iPython
+    else:
+        plt.ion()
 
     n_of_sublots = 5 if s_ref is not None or ph_ref is not None else 4
     
