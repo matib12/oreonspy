@@ -14,11 +14,11 @@ import xml.etree.ElementTree as ET
 
 import logging
 
-#logging.basicConfig(level=logging.INFO)
-
 logger = logging.getLogger(__name__.split(".")[-1])
 logger.setLevel(logging.INFO)
 
+mpl_logger = logging.getLogger("matplotlib")
+mpl_logger.setLevel(logging.WARNING)
 
 class Cavity:
     simulation_initialized = False
@@ -55,6 +55,9 @@ class Cavity:
                 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
                 self.file_handler.setFormatter(formatter)
                 logger.addHandler(self.file_handler)
+            else:
+                logging.basicConfig(level=debug)
+                logger.setLevel(debug)
             
             logger.debug("Cavity initialized with parameters:")
             logger.debug("t_a: {0}".format(self.t_a))
@@ -127,31 +130,34 @@ class Cavity:
         '''
         logger.debug("Simulation started")
         logger.debug("k: {0}".format(k))
-        logger.debug("f_calc: {0}".format(f_calc))
+        logger.debug("Required f_calc: {0}".format(f_calc))
         logger.debug("E_in_init: {0}".format(E_in_init))
         # Useful constants
-        _2T = 2.0 * self.T
-        _N_eff_factor = 2
+        _2T = 2.0 * self.T  # Round trip time
+        _N_eff_factor = 2   # Multiplier for the Effective number of photon round trips in a cavity
 
         # Algorithm parameters
-        N_epsilon = 0.1
+        N_epsilon = 0.25     # Epsilon for the number of chains estimation
 
         # Initial values
         self.k = k
         self.k2j = -2.0j * k  # Used frequently in step()
         self.number_of_2T_chains = 1
         self.N = 1
+        self.desired_f_calc = f_calc
+        self.f_calc_accuracy = 1.
 
         self.E_in_init = E_in_init
 
-        self.N_pre = 1.0 / (f_calc * _2T)
+        self.N_pre = 1.0 / (f_calc * _2T)  # N_pre is the number of round trips in the cavity during the calculation time
         logger.debug("N_pre: {0}".format(self.N_pre))
 
         self.partial_Theta = False
 
+        # Number of chains must be integer
         if self.N_pre < 1.0 - N_epsilon:
             logger.info("2T x times bigger then Theta. (x is integer)")
-            self.number_of_2T_chains = int(np.ceil(1.0 / self.N_pre))
+            self.number_of_2T_chains = int(np.round(1.0 / self.N_pre))
 
             self.f_calc = self.number_of_2T_chains / _2T
             self.Theta = 1.0 / f_calc
@@ -170,6 +176,7 @@ class Cavity:
 
         else:
             N_max = _N_eff_factor * self.N_eff()
+            logger.debug("N_max: {0}".format(N_max))
             if self.N_pre > N_max:
                 logger.info("N times Cavity decay time shorter than the sampling period")
                 self.N = N_max
@@ -178,7 +185,7 @@ class Cavity:
 
                 self.partial_Theta = True
             else:
-                logger.info("")
+                logger.info("N times Cavity decay time longer than the sampling period")
                 self.N = int(np.round(self.N_pre))
                 self.Theta = _2T * self.N
                 self.f_calc = 1.0 / self.Theta
@@ -186,8 +193,13 @@ class Cavity:
                     "Warning: approximated f_calc to: {0:.2f}".format(self.f_calc)
                 )
 
+        self.f_calc_accuracy = 1. - np.abs(self.f_calc - self.desired_f_calc) / self.desired_f_calc
+        
         logger.debug("N: {0}".format(self.N))
         logger.debug("Number of chains: {0}".format(self.number_of_2T_chains))
+        logger.debug("Theta: {0}".format(self.Theta))
+        logger.debug("Final f_calc: {0}".format(self.f_calc))
+        logger.debug("f_calc accuracy: {0:.2f}%".format(100*self.f_calc_accuracy))
 
         # Arrays initialization
         self.n = np.arange(0, self.N + 1, 1)
@@ -226,6 +238,8 @@ class Cavity:
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
         self.Ze_in = 0.
 
+        self.E_in = np.zeros(self.N, dtype=np.complex128)
+
         self.__sim_step_counter__ = 0
 
         self.simulation_initialized = True
@@ -259,8 +273,9 @@ class Cavity:
             Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
             #logger.debug("Z_start: {0}".format(Z_start))
 
-        self.Ze[1:] = np.linspace(Z_start, Z, self.N)
-        # logger.debug(self.Ze)
+        self.Ze[1:] = np.linspace(Z, Z_start, self.N, endpoint=False)
+        #logger.debug(self.Ze)
+
         self.Ze = np.add.accumulate(self.Ze)
         #logger.debug("Ze: {0}".format(self.Ze))
 
@@ -268,7 +283,7 @@ class Cavity:
         self.E_in_buffers[chain_idx].appendleft(E_in_curr)
 
         # Calculate the sum
-        for idx in np.arange(0, self.N, 1):
+        for idx in range(self.N):
             # print("index: {0}".format(idx))
             Sum = Sum + self.rarbne2iknL[idx] * np.exp(
                 self.k2j * self.Ze[idx]
@@ -502,8 +517,9 @@ class Cavity:
         Close the file handler if it exists and remove it from the logger.
         This method assures correct writing to disctinct logs.
         '''
-        self.file_handler.close()
-        logger.removeHandler(self.file_handler)
+        if hasattr(self, 'file_handler') and self.file_handler:
+            self.file_handler.close()
+            logger.removeHandler(self.file_handler)
 
 class TestCavity(Cavity):
     def __init__(self, debug=""):
