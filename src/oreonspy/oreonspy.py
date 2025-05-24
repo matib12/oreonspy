@@ -273,10 +273,13 @@ class Cavity:
             Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
             #logger.debug("Z_start: {0}".format(Z_start))
 
-        self.Ze[1:] = np.linspace(Z, Z_start, self.N, endpoint=False)
+        self.Ze[1:] = np.linspace(Z, Z_start, self.N, endpoint=True)
+        self.Ze = np.add.accumulate(self.Ze)
+
+        #self.Ze[1:] = np.linspace(Z_start, Z, self.N, endpoint=True)[::-1]
         #logger.debug(self.Ze)
 
-        self.Ze = np.add.accumulate(self.Ze)
+        #self.Ze = np.add.accumulate(self.Ze)
         #logger.debug("Ze: {0}".format(self.Ze))
 
         # Update input electric field buffer
