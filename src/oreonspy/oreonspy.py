@@ -27,10 +27,11 @@ import xml.etree.ElementTree as ET
 
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__.split(".")[-1])
+logger.setLevel(logging.INFO)
 
-logger = logging.getLogger(__name__)
-logger.setLevel("INFO")
+mpl_logger = logging.getLogger("matplotlib")
+mpl_logger.setLevel(logging.WARNING)
 
 @njit(float64[:](float64[:]))
 def numba_add_accumulate(A):
@@ -82,7 +83,7 @@ def difficult(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N
 class Cavity:
     simulation_initialized = False
 
-    def __init__(self, t_a=0.001, T_a=None, r_a=0.99, R_a=None, r_b=0.999, R_b=None, L=3000.0, debug=""):
+    def __init__(self, t_a=0.001, T_a=None, r_a=0.99, R_a=None, r_b=0.999, R_b=None, L=3000.0, debug=None, log_file=None):
         if T_a is not None:
             self.t_a = np.sqrt(T_a)
         else:
@@ -100,12 +101,31 @@ class Cavity:
         
         self.__L__ = L  # [m]
         self.T = L / const.c  # [s] half cavity round-trip time
-        if debug == "":
+
+        self.debug = debug
+        if debug is None:
             logger.disabled = True
             pass
         else:
-            logger.disabled = False
-            logger.setLevel(debug)
+            if log_file is not None:
+                logger.disabled = False
+                logger.setLevel(debug)
+                self.file_handler = logging.FileHandler(log_file)
+                self.file_handler.setLevel(debug)
+                formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+                self.file_handler.setFormatter(formatter)
+                logger.addHandler(self.file_handler)
+            else:
+                logging.basicConfig(level=debug)
+                logger.setLevel(debug)
+            
+            logger.debug("Cavity initialized with parameters:")
+            logger.debug("t_a: {0}".format(self.t_a))
+            logger.debug("r_a: {0}".format(self.r_a))
+            logger.debug("r_b: {0}".format(self.r_b))
+            logger.debug("L: {0}".format(self.__L__))
+            logger.debug("T: {0}".format(self.T))
+            logger.debug("Debug level: {0}".format(debug))
             
 
     def cavity_loss(self):
@@ -168,20 +188,28 @@ class Cavity:
         f_calc: calculation frequency
         E_in_init: initial electric field amplitude
         '''
+        logger.debug("Simulation started")
+        logger.debug("k: {0}".format(k))
+        logger.debug("Required f_calc: {0}".format(f_calc))
+        logger.debug("E_in_init: {0}".format(E_in_init))
         # Useful constants
-        _2T = 2.0 * self.T
-        _N_eff_factor = 2
+        _2T = 2.0 * self.T  # Round trip time
+        _N_eff_factor = 2   # Multiplier for the Effective number of photon round trips in a cavity
 
         # Algorithm parameters
-        N_epsilon = 0.1
+        N_epsilon = 0.25     # Epsilon for the number of chains estimation
 
         # Initial values
         self.k = k
         self.k2j = -2.0j * k  # Used frequently in step()
         self.number_of_2T_chains = 1
         self.N = 1
+        self.desired_f_calc = f_calc
+        self.f_calc_accuracy = 1.
 
-        self.N_pre = 1.0 / (f_calc * _2T)
+        self.E_in_init = E_in_init
+
+        self.N_pre = 1.0 / (f_calc * _2T)  # N_pre is the number of round trips in the cavity during the calculation time
         logger.debug("N_pre: {0}".format(self.N_pre))
 
         self.partial_Theta = False
@@ -207,6 +235,7 @@ class Cavity:
 
         else:
             N_max = _N_eff_factor * self.N_eff()
+            logger.debug("N_max: {0}".format(N_max))
             if self.N_pre > N_max:
                 logger.info("N times Cavity decay time shorter than the sampling period")
                 self.N = N_max
@@ -215,7 +244,7 @@ class Cavity:
 
                 self.partial_Theta = True
             else:
-                logger.info("")
+                logger.info("N times Cavity decay time longer than the sampling period")
                 self.N = int(np.round(self.N_pre))
                 self.Theta = _2T * self.N
                 self.f_calc = 1.0 / self.Theta
@@ -223,8 +252,13 @@ class Cavity:
                     "Warning: approximated f_calc to: {0:.2f}".format(self.f_calc)
                 )
 
+        self.f_calc_accuracy = 1. - np.abs(self.f_calc - self.desired_f_calc) / self.desired_f_calc
+
         logger.debug("N: {0}".format(self.N))
         logger.debug("Number of chains: {0}".format(self.number_of_2T_chains))
+        logger.debug("Theta: {0}".format(self.Theta))
+        logger.debug("Final f_calc: {0}".format(self.f_calc))
+        logger.debug("f_calc accuracy: {0:.2f}%".format(100*self.f_calc_accuracy))
 
         # Arrays initialization
         self.n = np.arange(0, self.N + 1, 1)
@@ -241,21 +275,55 @@ class Cavity:
         logger.debug("e2iknL: {0}".format(self.e2iknL))
         logger.debug("rarbne2iknL: {0}".format(self.rarbne2iknL))
 
+        plot_debug = True
+        if plot_debug:
+            # Plot self.rarbn, self.e2iknL, and self.rarbne2iknL in the same figure
+            fig, ax1 = plt.subplots()
+
+            # Plot self.rarbn
+            ax1.plot(self.n, self.rarbn, label="$(r_a r_b)^n$", color="blue")
+            ax1.set_xlabel("n")
+            ax1.set_ylabel("$(r_a r_b)^n$", color="blue")
+            ax1.tick_params(axis="y", labelcolor="blue")
+
+            # Plot self.e2iknL magnitude
+            #ax1.plot(self.n, np.abs(self.e2iknL), label="|$\exp(-2iknL)$|", color="green")  # Always 1
+            #ax1.plot(self.n, np.abs(self.rarbne2iknL), label="|$(r_a r_b)^n \cdot \exp(-2iknL)$|", color="red")  # Equal to self.rarbn
+
+            # Create a secondary y-axis for the phase
+            ax2 = ax1.twinx()
+            ax2.plot(self.n, np.unwrap(np.angle(self.e2iknL)), label="Phase of $\exp(-2iknL)$", color="orange", linestyle="--", marker='o')
+            ax2.set_ylabel("Phase [rad]", color="black")
+            ax2.tick_params(axis="y", labelcolor="black")
+
+            # Add legends
+            fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
+            plt.title("Decay and Phase of $(r_a r_b)^n$, $\exp(-2iknL)$, and $(r_a r_b)^n \cdot \exp(-2iknL)$")
+            plt.show()
+
         self.frac,_ = np.modf(self.__L__*k/(2.*np.pi))
         self.phi = 2.*np.pi*self.frac
         logger.debug("phi: {0}".format(self.phi))
 
-        self.airy_phi = self.E_adiabatic(np.abs(E_in_init), self.phi)
+        self.airy_phi = self.E_adiabatic(E_in_init, self.phi)
+        logger.debug("E_adiabatic cplx: {0}".format(self.airy_phi))
+        logger.debug("E_adiabatic abs : {0}".format(np.abs(self.airy_phi)))
+        logger.debug("E_adiabatic angl: {0}".format(np.angle(self.airy_phi)))
 
-        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(E_in_init))
+        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
 
         # Define a list of deque buffers for the electric field
         self.E_in_buffers = [E_in_init*np.ones(self.N, dtype=np.complex128) for _ in range(self.number_of_2T_chains)]
+        logger.debug("E_last cplx: {0}".format(self.E_last))
+        logger.debug("E_last abs : {0}".format(np.abs(self.E_last)))
+        logger.debug("E_last angl: {0}".format(np.angle(self.E_last)))
 
         self.Ze = np.zeros(self.N + 1, dtype=np.float64)
         self.Z_last = np.zeros(self.number_of_2T_chains, dtype=np.float64)
         self.d_zeta_last = np.zeros(self.number_of_2T_chains, dtype=np.float64)
         self.Ze_in = 0.
+
+        self.E_in = np.zeros(self.N, dtype=np.complex128)
 
         self.__sim_step_counter__ = 0
 
@@ -283,7 +351,7 @@ class Cavity:
         
         # Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
 
-        # logger.debug("Z_last: {0}".format(self.Z_last))
+        #logger.debug("Z_last: {0}".format(self.Z_last))
 
         # Z_start = self.Z_last[chain_idx]
         # if self.partial_Theta:
@@ -366,7 +434,7 @@ class Cavity:
         return E, E_ref_val
     
     def sim_reset(self):
-        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)
+        self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.Ze = np.zeros(self.N + 1)
         self.Ze_in = 0.
@@ -504,7 +572,7 @@ class Cavity:
             params[param.tag] = float(param.text)
 
         # Reinitialize the Cavity object with the loaded parameters
-        self.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=False)
+        self.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=self.debug)
     
     def E_ref(self, E, E_in_laser=1., Ze_in=0.):
         """
@@ -525,6 +593,15 @@ class Cavity:
         - self.r_a and self.t_a are predefined reflection and transmission coefficients, respectively.
         """
         return np.exp(self.k2j*Ze_in) * ((self.r_a**2 + self.t_a**2) * E_in_laser - self.t_a * E) / self.r_a
+
+    def close(self):
+        '''
+        Close the file handler if it exists and remove it from the logger.
+        This method assures correct writing to disctinct logs.
+        '''
+        if hasattr(self, 'file_handler') and self.file_handler:
+            self.file_handler.close()
+            logger.removeHandler(self.file_handler)
 
 
 class TestCavity(Cavity):
