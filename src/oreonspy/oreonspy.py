@@ -54,7 +54,7 @@ def difficult(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N
         Z_start += np.interp(N_pre-N , [0, N_pre], [0, d_zeta])
         #logger.debug("Z_start: {0}".format(Z_start))
 
-    Ze[1:] = np.linspace(Z_start, Z, num=N)
+    Ze[1:] = np.linspace(Z, Z_start, num=N + 1)
     # logger.debug(self.Ze)
     Ze = numba_add_accumulate(Ze)
     #logger.debug("Ze: {0}".format(Ze))
@@ -318,7 +318,7 @@ class Cavity:
         logger.debug("E_last abs : {0}".format(np.abs(self.E_last)))
         logger.debug("E_last angl: {0}".format(np.angle(self.E_last)))
 
-        self.Ze = np.zeros(self.N + 1, dtype=np.float64)
+        self.Ze = np.zeros(self.N + 2, dtype=np.float64)
         self.Z_last = np.zeros(self.number_of_2T_chains, dtype=np.float64)
         self.d_zeta_last = np.zeros(self.number_of_2T_chains, dtype=np.float64)
         self.Ze_in = 0.
