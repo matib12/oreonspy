@@ -1,13 +1,13 @@
 __authors__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
 __contact__ = "mateusz.bawaj@unipg.it"
 __credits__ = ["Andrea Svizzeretto", "Mateusz Bawaj"]
-__date__ = "2025/03/25"
+__date__ = "2025/06/23"
 __deprecated__ = False
 __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
 __maintainer__ = "developer"
 __status__ = "Production"
-__version__ = '3.3.3'
+__version__ = '4.1.0'
 
 from .oreonspy import Cavity
 from .oreonspy import TestCavity, ArmCavity, FilterCavity

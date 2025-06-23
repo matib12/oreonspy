@@ -9,3 +9,4 @@ dependencies:
   - python=3.10
   - slycot=0.5.4
   - finesse>=3
+  - numba
