@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.18"]
 build-backend = "hatchling.build"
 
 [project]
 name = "oreonspy"
-version = "4.1.0"
+version = "4.2.0"
 authors = [
   { name="Andrea Svizzeretto", email="andrea.svizzeretto@studenti.unipg.it" },
   { name="Mateusz Bawaj", email="mateusz.bawaj@unipg.it" },
@@ -31,6 +31,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Development Status :: 5 - Production/Stable",
+]
+dependencies = [
+  "numpy>=1.23",
+  "numba>=0.60",
+  "matplotlib>=3.5",
 ]
 
 [project.urls]
