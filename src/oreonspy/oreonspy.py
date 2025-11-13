@@ -8,11 +8,15 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
-from numba import njit, types
-from numba import int64, float64, complex128, boolean    # import the types
 import xml.etree.ElementTree as ET
-
 import logging
+
+try:
+    from ._numba_impl import heavy
+    HAS_NUMBA = True
+except Exception:
+    from ._pure_impl import heavy
+    HAS_NUMBA = False
 
 c = 299792458.0  # Speed of light in vacuum [m/s]
 
@@ -22,52 +26,7 @@ logger.setLevel(logging.INFO)
 mpl_logger = logging.getLogger("matplotlib")
 mpl_logger.setLevel(logging.WARNING)
 
-@njit(float64[:](float64[:]))
-def numba_add_accumulate(A):
-    r = np.empty(len(A), dtype=np.float64)
-    t = 0.
-    for i in range(len(A)):
-        t += A[i]
-        r[i] = t
-    return r
 
-@staticmethod
-@njit(types.Tuple((float64[:], complex128[:], complex128, float64))(float64, complex128, float64[:], float64, boolean, float64, int64, float64[:], complex128[:], complex128[:], complex128, float64, complex128)) #,fastmath=True)  # Check if fastmath=True is correct
-def difficult(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N_pre, N, Ze, E_in_buffers_chain_idx, rarbne2iknL, k2j, t_a, E_last_chain_idx):
-    Z = np.sum(d_zeta_last) + Z_last_chain_idx
-
-    #logger.debug("Z_last: {0}".format(self.Z_last))
-
-    Z_start = Z_last_chain_idx
-    if partial_Theta:
-        Z_start += np.interp(N_pre-N , [0, N_pre], [0, d_zeta])
-        #logger.debug("Z_start: {0}".format(Z_start))
-
-    Ze[1:] = np.linspace(Z, Z_start, num=N + 1)
-    # logger.debug(self.Ze)
-    Ze = numba_add_accumulate(Ze)
-    #logger.debug("Ze: {0}".format(Ze))
-
-    # Update input electric field buffer
-    E_in_buffers_chain_idx = np.roll(E_in_buffers_chain_idx, 1)
-    E_in_buffers_chain_idx[0] = E_in_curr
-
-    # Calculate the sum
-    Sum = 0.0
-    for idx in range(N):
-        # print("index: {0}".format(idx))
-        Sum = Sum + rarbne2iknL[idx] * np.exp(
-            k2j * Ze[idx]
-        ) * E_in_buffers_chain_idx[idx]
-
-    E = (
-        t_a * Sum
-        + rarbne2iknL[N]
-        * np.exp(k2j * Ze[N])
-        * E_last_chain_idx
-    )
-
-    return Ze, E_in_buffers_chain_idx, E, Z
 
 class Cavity:
     simulation_initialized = False
@@ -336,7 +295,7 @@ class Cavity:
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
-        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = difficult(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.partial_Theta, self.N_pre, self.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.k2j, self.t_a, self.E_last[chain_idx])
+        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.partial_Theta, self.N_pre, self.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.k2j, self.t_a, self.E_last[chain_idx])
         
         # Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
 
