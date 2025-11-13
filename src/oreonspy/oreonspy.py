@@ -6,7 +6,6 @@
 # - Andrea Svizzeretto, <andrea.svizzeretto@studenti.unipg.it>
 # - Mateusz Bawaj, <mateusz.bawaj@unipg.it>
 
-from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
 from numba import njit, types
@@ -14,6 +13,8 @@ from numba import int64, float64, complex128, boolean    # import the types
 import xml.etree.ElementTree as ET
 
 import logging
+
+c = 299792458.0  # Speed of light in vacuum [m/s]
 
 logger = logging.getLogger(__name__.split(".")[-1])
 logger.setLevel(logging.INFO)
@@ -88,7 +89,7 @@ class Cavity:
             self.r_b = r_b
         
         self.__L__ = L  # [m]
-        self.T = L / const.c  # [s] half cavity round-trip time
+        self.T = L / c  # [s] half cavity round-trip time
 
         self.debug = debug
         if debug is None:
@@ -144,7 +145,7 @@ class Cavity:
 
         return 2. * T * N_eff(r_a, r_b)
         """
-        return self.F() * self.__L__ / (np.pi * const.c)
+        return self.F() * self.__L__ / (np.pi * c)
 
     def Finesse(self):
         """
