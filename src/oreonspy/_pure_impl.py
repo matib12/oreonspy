@@ -1,4 +1,4 @@
-#import numpy as np
+import numpy as np
 
 def heavy(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N_pre, N, Ze, E_in_buffers_chain_idx, rarbne2iknL, k2j, t_a, E_last_chain_idx):
     Z = np.sum(d_zeta_last) + Z_last_chain_idx

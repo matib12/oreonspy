@@ -1,5 +1,4 @@
 import numpy as np
-from scipy import constants as const
 import matplotlib.pyplot as plt
 
 c = 299792458.0  # Speed of light in vacuum [m/s]

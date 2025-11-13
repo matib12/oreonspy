@@ -1,4 +1,4 @@
-#import numpy as np
+import numpy as np
 from numba import njit, types
 from numba import int64, float64, complex128, boolean    # import the types
 
