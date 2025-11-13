@@ -2,6 +2,8 @@ import numpy as np
 from scipy import constants as const
 import matplotlib.pyplot as plt
 
+c = 299792458.0  # Speed of light in vacuum [m/s]
+
 # Wavelength of the laser light
 lambd = 1064e-9  # [m]
 
@@ -66,7 +68,7 @@ def critical_velocity(cavity=None, wavelength=lambd, Finesse=None, L=None):
         Finesse = cavity.Finesse()
         L = cavity.__L__
     
-    return wavelength / (2. * Finesse * L/const.c/ np.arcsinh(np.pi/(2.*Finesse)))  # [m/s]!
+    return wavelength / (2. * Finesse * L/c/ np.arcsinh(np.pi/(2.*Finesse)))  # [m/s]!
 
 
 # Additional functions for the simulation
