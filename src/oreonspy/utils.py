@@ -31,7 +31,7 @@ def r_a_r_b(Finesse):
     return np.min([r_a_r_b_product_p, r_a_r_b_product_m])  # must be less than 1.0
 
 
-def critical_velocity(cavity=None, wavelength=None, Finesse=None, L=None):
+def critical_velocity(cavity=None, wavelength=lambd, Finesse=None, L=None):
     '''
     Calculate the critical velocity for a cavity.
     If cavity parameter is provided, it will be used to calculate the critical velocity.
