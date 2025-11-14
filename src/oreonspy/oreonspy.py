@@ -14,7 +14,9 @@ import logging
 try:
     from ._numba_impl import heavy
     HAS_NUMBA = True
-except Exception:
+except Exception as e:
+    print("Numba not found or not working properly, falling back to pure numpy implementation. Error: {0}".format(e))
+    
     from ._pure_impl import heavy
     HAS_NUMBA = False
 
