@@ -16,7 +16,7 @@ try:
     HAS_NUMBA = True
 except Exception as e:
     print("Numba not found or not working properly, falling back to pure numpy implementation. Error: {0}".format(e))
-    
+
     from ._pure_impl import heavy
     HAS_NUMBA = False
 
@@ -298,37 +298,6 @@ class Cavity:
         self.d_zeta_last[chain_idx] = d_zeta
 
         self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.partial_Theta, self.N_pre, self.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.k2j, self.t_a, self.E_last[chain_idx])
-        
-        # Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
-
-        #logger.debug("Z_last: {0}".format(self.Z_last))
-
-        # Z_start = self.Z_last[chain_idx]
-        # if self.partial_Theta:
-        #     Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
-        #     logger.debug("Z_start: {0}".format(Z_start))
-
-        # self.Ze[1:] = np.linspace(Z_start, Z, self.N)
-        # # logger.debug(self.Ze)
-        # self.Ze = np.add.accumulate(self.Ze)
-        # logger.debug("Ze: {0}".format(self.Ze))
-
-        # # Update input electric field buffer
-        # self.E_in_buffers[chain_idx].appendleft(E_in_curr)
-
-        # # Calculate the sum
-        # for idx in np.arange(0, self.N, 1):
-        #     # print("index: {0}".format(idx))
-        #     Sum = Sum + self.rarbne2iknL[idx] * np.exp(
-        #         self.k2j * self.Ze[idx]
-        #     ) * self.E_in_buffers[chain_idx][idx]
-
-        # E = (
-        #     self.t_a * Sum
-        #     + self.rarbne2iknL[self.N]
-        #     * np.exp(self.k2j * self.Ze[self.N])
-        #     * self.E_last[chain_idx]
-        # )
 
         #if not self.partial_Theta:
         self.E_last[chain_idx] = E
