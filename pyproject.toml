@@ -42,6 +42,10 @@ numba = [
   "numba>=0.60",
 ]
 
+test = [
+    "pytest",
+]
+
 [project.urls]
 Homepage = "https://git.ligo.org/mateusz.bawaj/oreonspy"
 Issues = "https://git.ligo.org/mateusz.bawaj/oreonspy/issues"
