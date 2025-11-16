@@ -11,13 +11,12 @@ from matplotlib import pyplot as plt
 import xml.etree.ElementTree as ET
 import logging
 
+from ._pure_impl import heavy as _pure_heavy
+
 try:
-    from ._numba_impl import heavy
+    from ._numba_impl import heavy as _numba_heavy
     HAS_NUMBA = True
 except Exception as e:
-    print("Numba not found or not working properly, falling back to pure numpy implementation. Error: {0}".format(e))
-
-    from ._pure_impl import heavy
     HAS_NUMBA = False
 
 c = 299792458.0  # Speed of light in vacuum [m/s]
@@ -131,12 +130,13 @@ class Cavity:
         print("Finesse: {0:.2f}".format(self.Finesse()))
         print("Gain: {0:.2f}".format(self.gain()))
 
-    def simulation(self, k, f_calc, E_in_init):
+    def simulation(self, k, f_calc, E_in_init, backend="auto"):
         '''
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
         k: wave number
         f_calc: calculation frequency
         E_in_init: initial electric field amplitude
+        backend: "pure" | "numba" | "auto"
         '''
         logger.debug("Simulation started")
         logger.debug("k: {0}".format(k))
@@ -242,13 +242,13 @@ class Cavity:
 
             # Create a secondary y-axis for the phase
             ax2 = ax1.twinx()
-            ax2.plot(self.n, np.unwrap(np.angle(self.e2iknL)), label="Phase of $\exp(-2iknL)$", color="orange", linestyle="--", marker='o')
+            ax2.plot(self.n, np.unwrap(np.angle(self.e2iknL)), label=r"Phase of $\exp(-2iknL)$", color="orange", linestyle="--", marker='o')
             ax2.set_ylabel("Phase [rad]", color="black")
             ax2.tick_params(axis="y", labelcolor="black")
 
             # Add legends
             fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
-            plt.title("Decay and Phase of $(r_a r_b)^n$, $\exp(-2iknL)$, and $(r_a r_b)^n \cdot \exp(-2iknL)$")
+            plt.title(r"Decay and Phase of $(r_a r_b)^n$, $\exp(-2iknL)$, and $(r_a r_b)^n \cdot \exp(-2iknL)$")
             plt.show()
 
         self.frac,_ = np.modf(self.__L__*k/(2.*np.pi))
@@ -276,6 +276,29 @@ class Cavity:
         self.E_in = np.zeros(self.N, dtype=np.complex128)
 
         self.__sim_step_counter__ = 0
+
+        global heavy
+
+        if backend == "pure":
+            heavy = _pure_heavy
+
+        elif backend == "numba":
+            if not HAS_NUMBA:
+                raise RuntimeError(
+                    "Numba backend requested but numba is not available. "
+                    "Install with `pip install mypkg[numba]`."
+                )
+            heavy = _numba_heavy
+
+        elif backend == "auto":
+            if HAS_NUMBA:
+                heavy = _numba_heavy
+            else:
+                heavy = _pure_heavy
+
+        else:
+            raise ValueError(f"Unknown backend {backend!r}. "
+                                "Use 'pure', 'numba' or 'auto'.")
 
         self.simulation_initialized = True
     
@@ -379,7 +402,7 @@ class Cavity:
 
         plt.plot(np.abs(self.e2iknL), label="Mag")
         plt.plot(np.angle(self.e2iknL), label="Phase")
-        plt.title("$\exp(-2ik(n-1)L)$")
+        plt.title(r"$\exp(-2ik(n-1)L)$")
         plt.xlabel("n")
         plt.legend()
 
@@ -387,7 +410,7 @@ class Cavity:
         return 1. / (1. + self.F() * np.sin(phi)**2)
     
     def E_adiabatic(self, E_in, phi):
-        """
+        r"""
         Calculate the adiabatic electric field inside the cavity based on the input electric field.
 
         This method uses the formula from Rakhmanov Eq. 1.72 to compute the adiabatic 
