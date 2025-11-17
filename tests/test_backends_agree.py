@@ -18,6 +18,8 @@ SCENARIOS = []
 motion_types = ["const", "step", "ramp", "sine", "pulse", "noise"]
 number_of_freqs = 6
 number_of_speeds = 6
+randomly_choose = True
+randomly_choose_count = 10
 
 freq_values = np.linspace(0.5, 5.0, number_of_freqs)
 speed_values = np.linspace(0.1, 5.0, number_of_speeds)
@@ -42,8 +44,8 @@ print(f"Generated {len(SCENARIOS)} test scenarios.")
 
 # Randomly select a subset of scenarios to limit test duration
 random.seed(42)
-if len(SCENARIOS) > 100:
-    SCENARIOS = random.sample(SCENARIOS, 100)
+if randomly_choose and (len(SCENARIOS) > randomly_choose_count):
+    SCENARIOS = random.sample(SCENARIOS, randomly_choose_count)
 
 print(f"Selected {len(SCENARIOS)} random scenarios.")
 
