@@ -3,6 +3,7 @@ import pytest
 from os import path
 import time
 import warnings
+from pathlib import Path
 
 import oreonspy as op
 import glob
@@ -20,7 +21,7 @@ number_of_freqs = 6
 number_of_speeds = 6
 randomly_choose = True
 randomly_choose_count = 10
-save_generated_scenarios = False  # Set to True to save all generated scenarios
+save_generated_scenarios = True  # Set to True to save all generated scenarios
 
 freq_values = np.linspace(0.5, 5.0, number_of_freqs)
 speed_values = np.linspace(0.1, 5.0, number_of_speeds)
@@ -143,7 +144,12 @@ def test_pure_vs_numba_agree(scenario):
     print(f"PURE backend simulation time: {pure_exec_time:.3f} seconds")
 
     if save_generated_scenarios:
-        np.save(path.join("tests", "data", scenario["name"] + "_pure.npy"), result_E_pure)
+        # Create directory for saving if it doesn't exist
+        dest_path = Path(path.join("tests", "data", op.__version__))
+        dest_path.mkdir(parents=True, exist_ok=True)
+        print(f"Saving generated scenario data to {dest_path}")
+
+        np.save(path.join(dest_path, scenario["name"] + "_pure.npy"), result_E_pure)
 
     # NUMBA BACKEND SIMULATION
     # This part resuses most of the setup from above to ensure identical conditions
@@ -165,7 +171,7 @@ def test_pure_vs_numba_agree(scenario):
     print(f"NUMBA backend simulation time: {numba_exec_time:.3f} seconds")
 
     if save_generated_scenarios:
-        np.save(path.join("tests", "data", scenario["name"] + "_numba.npy"), result_E_numba)
+        np.save(path.join(dest_path, scenario["name"] + "_numba.npy"), result_E_numba)
 
     if numba_exec_time > pure_exec_time:
         warnings.warn(UserWarning("NUMBA slower than PURE"))  # FAIL TEST IF NUMBA IS SLOWER
