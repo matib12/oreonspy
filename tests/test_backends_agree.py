@@ -309,7 +309,7 @@ if not PREVIOUS_SCENARIOS:
 
 #@pytest.mark.skip(reason="testing other tests")
 @pytest.mark.parametrize("scenario", PREVIOUS_SCENARIOS, ids=lambda s: s["name"])
-def test_pure_vs_numba_agree_existing(scenario):
+def test_current_version_pure_vs_previous_version_pure_agree(scenario):
     params = scenario["params"]
 
     print_params(params)
@@ -324,7 +324,7 @@ def test_pure_vs_numba_agree_existing(scenario):
     result_E_old = np.load(old_file)
     #result_E_numba = np.load(numba_file)
 
-    current_file = Path("tests/data") / op.__version__ / (scenario["name"] + "_numba.npy")
+    current_file = Path("tests/data") / op.__version__ / (scenario["name"] + "_pure.npy")
     print(f"Loading current data from: {current_file}")
     result_E_current = np.load(current_file)
 
@@ -338,6 +338,4 @@ def test_pure_vs_numba_agree_existing(scenario):
     atol=1e-3
 
     # Use the tolerances defined above (they may be adjusted for historical comparisons)
-    np.testing.assert_allclose(np.abs(result_E_old), np.abs(result_E_current), rtol=rtol, atol=atol)
-
-    #np.testing.assert_allclose(result_E_old, result_E_current, rtol=1e-7, atol=1e-10)
+    np.testing.assert_allclose(result_E_old, result_E_current, rtol=rtol, atol=atol)
