@@ -1,27 +1,91 @@
 import numpy as np
 import pytest
-from os import path
+from os import path, fsync
 import time
 import warnings
 from pathlib import Path
+from packaging.version import Version
+import copy
 
 import oreonspy as op
 import glob
 import random
 import oreonspy.utils as ut
 
+def extract_params_from_filename(filename):
+    """
+    Extract parameters from a filename.
+    
+    Example: "noise_cavity_14397bf2-8fe3-5c85-811d-053248fff88c_f4.1_s0.1_pure.npy"
+    Returns: {"type": "noise", "cavity": "cavity_14397bf2-8fe3-5c85-811d-053248fff88c", "freq": 4.1, "speed": 0.1}
+    """
+    # Remove file extension and backend suffix
+    name = Path(filename).stem
+    if name.endswith("_pure"):
+        name = name[:-5]
+    elif name.endswith("_numba"):
+        name = name[:-6]
+    
+    parts = name.split("_")
+    
+    motion_type = parts[0]
+    #print(parts)
+    cavity = parts[1]+"_"+parts[2]
+    
+    freq = float(parts[3][1:])
+    speed = float(parts[4][1:])
+    
+    return {
+        "type": motion_type,
+        "cavity": cavity,
+        "freq": freq,
+        "speed": speed
+    }
+
+def print_params(params, indent=0):
+    """Pretty-print a params dict (handles nested dicts/lists)."""
+    pad = " " * (indent * 2)
+    if isinstance(params, dict):
+        for key in sorted(params):
+            val = params[key]
+            if isinstance(val, dict):
+                print(f"{pad}{key}:")
+                print_params(val, indent + 1)
+            elif isinstance(val, list):
+                print(f"{pad}{key}: [")
+                for item in val:
+                    if isinstance(item, dict):
+                        print_params(item, indent + 2)
+                    else:
+                        print(f"{pad}  {item}")
+                print(f"{pad}]")
+            elif isinstance(val, float):
+                print(f"{pad}{key}: {val:.6g}")
+            else:
+                print(f"{pad}{key}: {val}")
+    else:
+        # fallback for non-dict params
+        print(f"{pad}{params}")
+
 # Discover cavity XML files in optical_cavities_testset directory
 cavity_files = glob.glob(path.join("tests", "optical_cavities_testset", "*.xml"))
 cavity_names = [path.basename(f).replace(".xml", "") for f in cavity_files]
 
+#print("Cavity files found:", cavity_files)
+#print("Cavity names found:", cavity_names)
+print("Cavity files found:", len(cavity_files))
+print("Cavity names found:", len(cavity_names))
+
 # Generate scenarios dynamically
 SCENARIOS = []
+PREVIOUS_SCENARIOS = []
 motion_types = ["const", "step", "ramp", "sine", "pulse", "noise"]
 number_of_freqs = 6
 number_of_speeds = 6
 randomly_choose = True
 randomly_choose_count = 10
 save_generated_scenarios = True  # Set to True to save all generated scenarios
+compare_with_existing_data = True  # Set to True to include existing test data
 
 freq_values = np.linspace(0.5, 5.0, number_of_freqs)
 speed_values = np.linspace(0.1, 5.0, number_of_speeds)
@@ -37,7 +101,8 @@ for cavity in cavity_names:
                         "freq": round(freq, 1),
                         "speed": round(speed, 1),
                         "type": motion_type,
-                        "cavity": cavity
+                        "cavity": cavity,
+                        "version": op.__version__
                     }
                 })
 
@@ -50,6 +115,42 @@ if randomly_choose and (len(SCENARIOS) > randomly_choose_count):
     SCENARIOS = random.sample(SCENARIOS, randomly_choose_count)
 
 print(f"Selected {len(SCENARIOS)} random scenarios.")
+
+if compare_with_existing_data:
+    save_generated_scenarios = True  # Ensure saving is enabled when comparing with existing data
+
+    # Parse existing test data from previous versions
+    data_dir = Path("tests/data")
+    if data_dir.exists():
+        print(f"Loading existing test data from {data_dir}")
+        for version_dir in data_dir.iterdir():
+            if version_dir.is_dir() and Version(version_dir.name) < Version(op.__version__):
+                print(f"Checking version directory: {version_dir}")
+                npy_files = list(version_dir.glob("*_pure.npy"))
+                print(f"Found {len(npy_files)} .npy files in {version_dir}")
+                for npy_file in npy_files:
+                    # TODO: foresee numba npy files too!
+                    scenario_name = npy_file.stem.replace("_pure", "")
+                    print(f"Processing file: {npy_file.name} for scenario: {scenario_name}")
+                    # Check if such scenario already exists
+                    if not any(scenario_name in s["name"] for s in SCENARIOS):
+                        params = extract_params_from_filename(npy_file.name)
+                        params["version"] = version_dir.name
+                        print_params(params)
+                        #print(f"Adding scenario from file: {npy_file.name} with params: {params}")
+                        PREVIOUS_SCENARIOS.append({"name": scenario_name, "params": params})
+            else:
+                print(f"Skipping version directory: {version_dir} (not older version)")
+    
+    SCENARIOS.extend(copy.deepcopy(PREVIOUS_SCENARIOS))
+    for s in SCENARIOS:
+        s["params"]["version"] = op.__version__
+
+print("==========================")
+print(SCENARIOS)
+print("==========================")
+print(PREVIOUS_SCENARIOS)
+print("==========================")
 
 # Manually defined scenarios for testing
 '''
@@ -72,12 +173,15 @@ SCENARIOS = [
 ]
 '''
 
+#@pytest.mark.skip(reason="testing other tests")
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s["name"])
 def test_pure_vs_numba_agree(scenario):
     params = scenario["params"]
 
+    print_params(params)
+
     critical_velocity_factor = params["speed"]
-    print(f"Testing scenario: {scenario['name']} with speed factor {critical_velocity_factor}")
+    print(f"Testing scenario: {scenario['name']}")
 
     # PURE BACKEND SIMULATION
 
@@ -149,7 +253,11 @@ def test_pure_vs_numba_agree(scenario):
         dest_path.mkdir(parents=True, exist_ok=True)
         print(f"Saving generated scenario data to {dest_path}")
 
-        np.save(path.join(dest_path, scenario["name"] + "_pure.npy"), result_E_pure)
+        pure_file_path = path.join(dest_path, scenario["name"] + "_pure.npy")
+        with open(pure_file_path, 'wb') as f:
+            np.save(f, result_E_pure)
+            f.flush()
+            fsync(f.fileno())
 
     # NUMBA BACKEND SIMULATION
     # This part resuses most of the setup from above to ensure identical conditions
@@ -171,11 +279,55 @@ def test_pure_vs_numba_agree(scenario):
     print(f"NUMBA backend simulation time: {numba_exec_time:.3f} seconds")
 
     if save_generated_scenarios:
-        np.save(path.join(dest_path, scenario["name"] + "_numba.npy"), result_E_numba)
+        print(f"Saving generated scenario data to {dest_path}")
+
+        numba_file_path = path.join(dest_path, scenario["name"] + "_numba.npy")
+        with open(numba_file_path, 'wb') as f:
+            np.save(f, result_E_numba)
+            f.flush()
+            fsync(f.fileno())
 
     if numba_exec_time > pure_exec_time:
-        warnings.warn(UserWarning("NUMBA slower than PURE"))  # FAIL TEST IF NUMBA IS SLOWER
+        warnings.warn(UserWarning("NUMBA slower than PURE"))  # ISSUE WARNING IF NUMBA IS SLOWER
 
     # COMPARE RESULTS
     np.testing.assert_allclose(result_E_pure, result_E_numba, rtol=1e-7, atol=1e-10)
     np.testing.assert_allclose(result_E_ref_pure, result_E_ref_numba, rtol=1e-7, atol=1e-10)
+
+if not PREVIOUS_SCENARIOS:
+    pytest.skip("No previous scenarios available", allow_module_level=True)
+
+#@pytest.mark.skip(reason="testing other tests")
+@pytest.mark.parametrize("scenario", PREVIOUS_SCENARIOS, ids=lambda s: s["name"])
+def test_pure_vs_numba_agree_existing(scenario):
+    params = scenario["params"]
+
+    print_params(params)
+
+    version = params["version"]
+    data_dir = Path("tests/data") / version
+
+    old_file = data_dir / (scenario["name"] + "_pure.npy")
+    print(f"Loading old data from: {old_file}")
+    #numba_file = data_dir / (scenario["name"] + "_numba.npy")
+
+    result_E_old = np.load(old_file)
+    #result_E_numba = np.load(numba_file)
+
+    current_file = Path("tests/data") / op.__version__ / (scenario["name"] + "_numba.npy")
+    print(f"Loading current data from: {current_file}")
+    result_E_current = np.load(current_file)
+
+    # COMPARE RESULTS
+    # Defaule tolerances
+    rtol=1e-7
+    atol=1e-10
+
+    # User-defined tolerances
+    rtol=1e-2
+    atol=1e-3
+
+    # Use the tolerances defined above (they may be adjusted for historical comparisons)
+    np.testing.assert_allclose(np.abs(result_E_old), np.abs(result_E_current), rtol=rtol, atol=atol)
+
+    #np.testing.assert_allclose(result_E_old, result_E_current, rtol=1e-7, atol=1e-10)
