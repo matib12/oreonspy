@@ -240,7 +240,10 @@ def test_pure_vs_numba_agree(scenario):
         raise ValueError(f"Unknown motion type: {params['type']}")
 
     # Run PURE backend simulation
-    cavity_pure.simulation(ut.k, f_calc, 1.0, backend="pure")
+    if hasattr(op, "HAS_NUMBA"):
+        cavity_pure.simulation(ut.k, f_calc, 1.0, backend="pure")
+    else:
+        cavity_pure.simulation(ut.k, f_calc, 1.0)
 
     result_E_pure = np.zeros(tlen, dtype=np.complex128)
     result_E_ref_pure = np.zeros(tlen, dtype=np.complex128)
