@@ -304,12 +304,12 @@ def test_pure_vs_numba_agree(scenario):
         np.testing.assert_allclose(result_E_pure, result_E_numba, rtol=1e-7, atol=1e-10)
         np.testing.assert_allclose(result_E_ref_pure, result_E_ref_numba, rtol=1e-7, atol=1e-10)
 
-if not PREVIOUS_SCENARIOS:
-    pytest.skip("No previous scenarios available", allow_module_level=True)
 
-#@pytest.mark.skip(reason="testing other tests")
-@pytest.mark.parametrize("scenario", PREVIOUS_SCENARIOS, ids=lambda s: s["name"])
+@pytest.mark.parametrize("scenario", PREVIOUS_SCENARIOS, ids=lambda s: s["name"] if s==[] else "no-scenarios")
 def test_current_version_pure_vs_previous_version_pure_agree(scenario):
+    if not scenario:
+        pytest.skip("No previous scenarios available")
+    
     params = scenario["params"]
 
     print_params(params)
