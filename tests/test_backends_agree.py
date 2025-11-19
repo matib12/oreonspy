@@ -129,22 +129,28 @@ if compare_with_existing_data:
                 npy_files = list(version_dir.glob("*_pure.npy"))
                 print(f"Found {len(npy_files)} .npy files in {version_dir}")
                 for npy_file in npy_files:
-                    # TODO: foresee numba npy files too!
-                    scenario_name = npy_file.stem.replace("_pure", "")
+                    scenario_name = npy_file.stem
+                    if scenario_name.endswith("_pure"):
+                        scenario_name = scenario_name[:-5]
+                    elif scenario_name.endswith("_numba"):
+                        scenario_name = scenario_name[:-6]
                     print(f"Processing file: {npy_file.name} for scenario: {scenario_name}")
-                    # Check if such scenario already exists
-                    if not any(scenario_name in s["name"] for s in SCENARIOS):
-                        params = extract_params_from_filename(npy_file.name)
-                        params["version"] = version_dir.name
-                        print_params(params)
-                        #print(f"Adding scenario from file: {npy_file.name} with params: {params}")
-                        PREVIOUS_SCENARIOS.append({"name": scenario_name, "params": params})
+                    # Add all scenarios to PREVIOUS_SCENARIOS to be tested in the second test
+                    params = extract_params_from_filename(npy_file.name)
+                    params["version"] = version_dir.name
+                    print_params(params)
+                    #print(f"Adding scenario from file: {npy_file.name} with params: {params}")
+                    PREVIOUS_SCENARIOS.append({"name": scenario_name, "params": params})
             else:
                 print(f"Skipping version directory: {version_dir} (not older version)")
     
-    SCENARIOS.extend(copy.deepcopy(PREVIOUS_SCENARIOS))
-    for s in SCENARIOS:
-        s["params"]["version"] = op.__version__
+    existing_scenario_names = {s["name"] for s in SCENARIOS}
+    for prev_scenario in PREVIOUS_SCENARIOS:
+        if prev_scenario["name"] not in existing_scenario_names:
+            new_scenario = copy.deepcopy(prev_scenario)
+            new_scenario["params"]["version"] = op.__version__
+            SCENARIOS.append(new_scenario)
+
 
 print("==========================")
 print(SCENARIOS)
@@ -262,37 +268,38 @@ def test_pure_vs_numba_agree(scenario):
     # NUMBA BACKEND SIMULATION
     # This part resuses most of the setup from above to ensure identical conditions
 
-    cavity_numba = op.Cavity()
-    cavity_numba.xml_load(path.join("tests", "optical_cavities_testset", params["cavity"] + ".xml"))
+    if hasattr(op, "HAS_NUMBA") and op.HAS_NUMBA:
+        cavity_numba = op.Cavity()
+        cavity_numba.xml_load(path.join("tests", "optical_cavities_testset", params["cavity"] + ".xml"))
 
-    result_E_numba = np.zeros(tlen, dtype=np.complex128)
-    result_E_ref_numba = np.zeros(tlen, dtype=np.complex128)
+        result_E_numba = np.zeros(tlen, dtype=np.complex128)
+        result_E_ref_numba = np.zeros(tlen, dtype=np.complex128)
 
-    # Run NUMBA backend simulation
-    cavity_numba.simulation(ut.k, f_calc, 1.0, backend="numba")
+        # Run NUMBA backend simulation
+        cavity_numba.simulation(ut.k, f_calc, 1.0, backend="numba")
 
-    start = time.perf_counter()
-    for i in range(tlen):
-        result_E_numba[i], result_E_ref_numba[i] = cavity_numba.sim_step(E_in_laser=1., d_zeta_in=0., d_zeta=z_steps[i])
-    end = time.perf_counter()
-    numba_exec_time = end - start
-    print(f"NUMBA backend simulation time: {numba_exec_time:.3f} seconds")
+        start = time.perf_counter()
+        for i in range(tlen):
+            result_E_numba[i], result_E_ref_numba[i] = cavity_numba.sim_step(E_in_laser=1., d_zeta_in=0., d_zeta=z_steps[i])
+        end = time.perf_counter()
+        numba_exec_time = end - start
+        print(f"NUMBA backend simulation time: {numba_exec_time:.3f} seconds")
 
-    if save_generated_scenarios:
-        print(f"Saving generated scenario data to {dest_path}")
+        if save_generated_scenarios:
+            print(f"Saving generated scenario data to {dest_path}")
 
-        numba_file_path = path.join(dest_path, scenario["name"] + "_numba.npy")
-        with open(numba_file_path, 'wb') as f:
-            np.save(f, result_E_numba)
-            f.flush()
-            fsync(f.fileno())
+            numba_file_path = path.join(dest_path, scenario["name"] + "_numba.npy")
+            with open(numba_file_path, 'wb') as f:
+                np.save(f, result_E_numba)
+                f.flush()
+                fsync(f.fileno())
 
-    if numba_exec_time > pure_exec_time:
-        warnings.warn(UserWarning("NUMBA slower than PURE"))  # ISSUE WARNING IF NUMBA IS SLOWER
+        if numba_exec_time > pure_exec_time:
+            warnings.warn(UserWarning("NUMBA slower than PURE"))  # ISSUE WARNING IF NUMBA IS SLOWER
 
-    # COMPARE RESULTS
-    np.testing.assert_allclose(result_E_pure, result_E_numba, rtol=1e-7, atol=1e-10)
-    np.testing.assert_allclose(result_E_ref_pure, result_E_ref_numba, rtol=1e-7, atol=1e-10)
+        # COMPARE RESULTS
+        np.testing.assert_allclose(result_E_pure, result_E_numba, rtol=1e-7, atol=1e-10)
+        np.testing.assert_allclose(result_E_ref_pure, result_E_ref_numba, rtol=1e-7, atol=1e-10)
 
 if not PREVIOUS_SCENARIOS:
     pytest.skip("No previous scenarios available", allow_module_level=True)
