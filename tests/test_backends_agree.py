@@ -12,6 +12,15 @@ import glob
 import random
 import oreonspy.utils as ut
 
+# Test scenario generation parameters
+motion_types = ["const", "step", "ramp", "sine", "pulse", "noise"]
+number_of_freqs = 6
+number_of_speeds = 6
+randomly_choose = True
+randomly_choose_count = 10
+save_generated_scenarios = True  # Set to True to save all generated scenarios
+compare_with_existing_data = True  # Set to True to include existing test data
+
 def extract_params_from_filename(filename):
     """
     Extract parameters from a filename.
@@ -79,13 +88,6 @@ print("Cavity names found:", len(cavity_names))
 # Generate scenarios dynamically
 SCENARIOS = []
 PREVIOUS_SCENARIOS = []
-motion_types = ["const", "step", "ramp", "sine", "pulse", "noise"]
-number_of_freqs = 6
-number_of_speeds = 6
-randomly_choose = True
-randomly_choose_count = 10
-save_generated_scenarios = True  # Set to True to save all generated scenarios
-compare_with_existing_data = True  # Set to True to include existing test data
 
 freq_values = np.linspace(0.5, 5.0, number_of_freqs)
 speed_values = np.linspace(0.1, 5.0, number_of_speeds)
@@ -305,8 +307,11 @@ def test_pure_vs_numba_agree(scenario):
         np.testing.assert_allclose(result_E_ref_pure, result_E_ref_numba, rtol=1e-7, atol=1e-10)
 
 
-@pytest.mark.parametrize("scenario", PREVIOUS_SCENARIOS, ids=lambda s: s["name"] if s!=[] else "no-scenarios")
-def test_current_version_pure_vs_previous_version_pure_agree(scenario):
+ids = [s["name"] for s in PREVIOUS_SCENARIOS] if PREVIOUS_SCENARIOS else None
+
+@pytest.mark.parametrize("scenario", PREVIOUS_SCENARIOS, ids=ids)
+#def test_current_version_pure_vs_previous_version_pure_agree(scenario):
+def test_cv(scenario):
     if not scenario:
         pytest.skip("No previous scenarios available")
     
@@ -328,6 +333,8 @@ def test_current_version_pure_vs_previous_version_pure_agree(scenario):
     print(f"Loading current data from: {current_file}")
     result_E_current = np.load(current_file)
 
+    deviation = np.max(np.abs(result_E_current - result_E_old))
+
     # COMPARE RESULTS
     # Defaule tolerances
     rtol=1e-7
@@ -338,4 +345,4 @@ def test_current_version_pure_vs_previous_version_pure_agree(scenario):
     atol=1e-3
 
     # Use the tolerances defined above (they may be adjusted for historical comparisons)
-    np.testing.assert_allclose(result_E_old, result_E_current, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(result_E_old, result_E_current, rtol=rtol, atol=atol, err_msg=f"Dicrepancy: {deviation:.3f}", verbose=True)
