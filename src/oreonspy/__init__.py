@@ -7,7 +7,8 @@ __email__ =  "mateusz.bawaj@unipg.it"
 __license__ = "GPLv3"
 __maintainer__ = "developer"
 __status__ = "Production"
-__version__ = '4.2.3'
+__version__ = '4.2.4'
 
 from .oreonspy import Cavity
 from .oreonspy import TestCavity, ArmCavity, FilterCavity
+from .oreonspy import HAS_NUMBA
