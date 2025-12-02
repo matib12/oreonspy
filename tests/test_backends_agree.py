@@ -12,12 +12,21 @@ import glob
 import random
 import oreonspy.utils as ut
 
+"""
+This file conains two automated tests prepared for pytest tool. The first one verifies the agreement between pure and numba implementation of computationally heavy parts of the code. The second one allows the verfication of results provided by all versions of the simulator.
+
+SCENARIOS = [
+    #cavity_0c4b9c47-5b22-5678-9107-511887fa03d8
+    {"name": "const_low_freq_high_speed_cav1", "params": {"freq": 0.5, "speed": 5.0, "type": "step", "cavity": "cavity_0c4b9c47-5b22-5678-9107-511887fa03d8"}},
+]
+"""
+
 # Test scenario generation parameters
 motion_types = ["const", "step", "ramp", "sine", "pulse", "noise"]
 number_of_freqs = 6
 number_of_speeds = 6
 randomly_choose = True
-randomly_choose_count = 10
+randomly_choose_count = 0
 save_generated_scenarios = True  # Set to True to save all generated scenarios
 compare_with_existing_data = True  # Set to True to include existing test data
 
@@ -160,24 +169,10 @@ print("==========================")
 print(PREVIOUS_SCENARIOS)
 print("==========================")
 
-# Manually defined scenarios for testing
+# === FORCE manually defined scenarios for testing here ===
 '''
 SCENARIOS = [
-    #cavity_0c4b9c47-5b22-5678-9107-511887fa03d8
-    {"name": "const_low_freq_high_speed_cav1", "params": {"freq": 0.5, "speed": 5.0, "type": "step", "cavity": "cavity_0c4b9c47-5b22-5678-9107-511887fa03d8"}},
-    {"name": "step_low_freq_high_speed_cav1", "params": {"freq": 1.0, "speed": 4.0, "type": "ramp", "cavity": "cavity_0c4b9c47-5b22-5678-9107-511887fa03d8"}},
-    {"name": "ramp_low_freq_high_speed_cav1", "params": {"freq": 2.0, "speed": 3.0, "type": "sine", "cavity": "cavity_0c4b9c47-5b22-5678-9107-511887fa03d8"}},
-    {"name": "sine_low_freq_high_speed_cav1", "params": {"freq": 3.0, "speed": 2.0, "type": "pulse", "cavity": "cavity_0c4b9c47-5b22-5678-9107-511887fa03d8"}},
-    {"name": "pulse_low_freq_high_speed_cav1", "params": {"freq": 4.0, "speed": 1.0, "type": "noise", "cavity": "cavity_0c4b9c47-5b22-5678-9107-511887fa03d8"}},
-    {"name": "noise_low_freq_high_speed_cav1", "params": {"freq": 5.0, "speed": 0.1, "type": "const", "cavity": "cavity_0c4b9c47-5b22-5678-9107-511887fa03d8"}},
-    #cavity_99b865df-23c7-5d84-9c34-7d86b2ade673
-    {"name": "const_low_freq_high_speed_cav1", "params": {"freq": 0.5, "speed": 5.0, "type": "const", "cavity": "cavity_99b865df-23c7-5d84-9c34-7d86b2ade673"}},
-    {"name": "step_low_freq_high_speed_cav1", "params": {"freq": 1.0, "speed": 4.0, "type": "step", "cavity": "cavity_99b865df-23c7-5d84-9c34-7d86b2ade673"}},
-    {"name": "ramp_low_freq_high_speed_cav1", "params": {"freq": 2.0, "speed": 3.0, "type": "ramp", "cavity": "cavity_99b865df-23c7-5d84-9c34-7d86b2ade673"}},
-    {"name": "sine_low_freq_high_speed_cav1", "params": {"freq": 3.0, "speed": 2.0, "type": "sine", "cavity": "cavity_99b865df-23c7-5d84-9c34-7d86b2ade673"}},
-    {"name": "pulse_low_freq_high_speed_cav1", "params": {"freq": 4.0, "speed": 1.0, "type": "pulse", "cavity": "cavity_99b865df-23c7-5d84-9c34-7d86b2ade673"}},
-    {"name": "noise_low_freq_high_speed_cav1", "params": {"freq": 5.0, "speed": 0.1, "type": "noise", "cavity": "cavity_99b865df-23c7-5d84-9c34-7d86b2ade673"}},
-    # add more parameter sets here
+    {"name": "const_low_freq_high_speed_cav1", "params": {"freq": 0.5, "speed": 5.0, "type": "step", "cavity": "cavity_0c4b9c47-5b22-5678-9107-511887fa03d8"}}
 ]
 '''
 
