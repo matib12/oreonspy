@@ -39,3 +39,7 @@ Issues = "https://git.ligo.org/mateusz.bawaj/oreonspy/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/oreonspy"]
+exclude = [
+  "*test*",
+  "*(copy)*"
+]
