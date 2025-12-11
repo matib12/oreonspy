@@ -147,11 +147,16 @@ if compare_with_existing_data:
                         scenario_name = scenario_name[:-6]
                     print(f"Processing file: {npy_file.name} for scenario: {scenario_name}")
                     # Add all scenarios to PREVIOUS_SCENARIOS to be tested in the second test
-                    params = extract_params_from_filename(npy_file.name)
-                    params["version"] = version_dir.name
-                    print_params(params)
-                    #print(f"Adding scenario from file: {npy_file.name} with params: {params}")
-                    PREVIOUS_SCENARIOS.append({"name": scenario_name, "params": params})
+                    try:
+                        params = extract_params_from_filename(npy_file.name)
+                    except Exception as e:
+                        print(f"Error extracting params from filename {npy_file.name}: {e}")
+                        continue
+                    else:
+                        params["version"] = version_dir.name
+                        print_params(params)
+                        #print(f"Adding scenario from file: {npy_file.name} with params: {params}")
+                        PREVIOUS_SCENARIOS.append({"name": scenario_name, "params": params})
             else:
                 print(f"Skipping version directory: {version_dir} (not older version)")
     
@@ -177,6 +182,7 @@ SCENARIOS = [
 '''
 
 #@pytest.mark.skip(reason="testing other tests")
+@pytest.mark.backend_agree_test  # to run: $ pytest -m backend_agree_test --capture no
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s["name"])
 def test_pure_vs_numba_agree(scenario):
     params = scenario["params"]
@@ -304,6 +310,7 @@ def test_pure_vs_numba_agree(scenario):
 
 ids = [s["name"] for s in PREVIOUS_SCENARIOS] if PREVIOUS_SCENARIOS else None
 
+@pytest.mark.backward_compatibility_test  # to run: $ pytest -m backend_agree_test --capture no
 @pytest.mark.parametrize("scenario", PREVIOUS_SCENARIOS, ids=ids)
 #def test_current_version_pure_vs_previous_version_pure_agree(scenario):
 def test_cv(scenario):
