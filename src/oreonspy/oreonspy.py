@@ -130,7 +130,77 @@ class Cavity:
         print("Finesse: {0:.2f}".format(self.Finesse()))
         print("Gain: {0:.2f}".format(self.gain()))
 
-    def simulation(self, k, f_calc, E_in_init, backend="auto"):
+    def estimate_f_calc(self, k, desired_f_calc):
+        """
+        Estimate f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains, f_calc_accuracy
+        k: wave number
+        desired_f_calc: desired calculation frequency
+        """
+        # Useful constants
+        _2T = 2.0 * self.T  # Round trip time
+        _N_eff_factor = 2   # Multiplier for the Effective number of photon round trips in a cavity
+
+        # Algorithm parameters
+        N_epsilon = 0.25     # Epsilon for the number of chains estimation
+
+        # Initial values
+        number_of_2T_chains = 1
+        N = 1
+        f_calc_accuracy = 1.
+
+        N_pre = 1.0 / (desired_f_calc * _2T)  # N_pre is the number of round trips in the cavity during the calculation time
+        logger.debug("N_pre: {0}".format(N_pre))
+
+        partial_Theta = False
+
+        if N_pre < 1.0 - N_epsilon:
+            logger.info("2T x times bigger then Theta. (x is integer)")
+            number_of_2T_chains = int(np.ceil(1.0 / N_pre))
+
+            f_calc = number_of_2T_chains / _2T
+            Theta = 1.0 / f_calc
+            logger.warning(
+                "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
+            )
+            logger.warning("Number of chains: {0}".format(number_of_2T_chains))
+
+        elif N_pre < 1.0 + N_epsilon:
+            logger.info("2T comparable with Theta so N becomes 1")
+            f_calc = 1.0 / _2T
+            Theta = _2T
+            logger.warning(
+                "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
+            )
+        else:
+            N_max = _N_eff_factor * self.N_eff()
+            logger.debug("N_max: {0}".format(N_max))
+            if N_pre > N_max:
+                logger.info("N times Cavity decay time shorter than the sampling period")
+                N = N_max
+                f_calc = desired_f_calc
+                Theta = 1.0 / desired_f_calc
+
+                partial_Theta = True
+            else:
+                logger.info("N times Cavity decay time longer than the sampling period")
+                N = int(np.round(N_pre))
+                Theta = _2T * N
+                f_calc = 1.0 / Theta
+                logger.warning(
+                    "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
+                )
+
+        f_calc_accuracy = 1. - np.abs(f_calc - desired_f_calc) / desired_f_calc
+
+        logger.debug("N: {0}".format(N))
+        logger.debug("Number of chains: {0}".format(number_of_2T_chains))
+        logger.debug("Theta: {0}".format(Theta))
+        logger.debug("Final f_calc: {0}".format(f_calc))
+        logger.debug("f_calc accuracy: {0:.2f}%".format(100*f_calc_accuracy))
+
+        return f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains, f_calc_accuracy
+
+    def simulation(self, k, desired_f_calc, E_in_init, backend="auto"):
         '''
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
         k: wave number
@@ -140,75 +210,18 @@ class Cavity:
         '''
         logger.debug("Simulation started")
         logger.debug("k: {0}".format(k))
-        logger.debug("Required f_calc: {0}".format(f_calc))
+        logger.debug("Desired f_calc: {0}".format(desired_f_calc))
         logger.debug("E_in_init: {0}".format(E_in_init))
-        # Useful constants
-        _2T = 2.0 * self.T  # Round trip time
-        _N_eff_factor = 2   # Multiplier for the Effective number of photon round trips in a cavity
 
-        # Algorithm parameters
-        N_epsilon = 0.25     # Epsilon for the number of chains estimation
 
         # Initial values
         self.k = k
         self.k2j = -2.0j * k  # Used frequently in step()
-        self.number_of_2T_chains = 1
-        self.N = 1
-        self.desired_f_calc = f_calc
-        self.f_calc_accuracy = 1.
 
         self.E_in_init = E_in_init
 
-        self.N_pre = 1.0 / (f_calc * _2T)  # N_pre is the number of round trips in the cavity during the calculation time
-        logger.debug("N_pre: {0}".format(self.N_pre))
-
-        self.partial_Theta = False
-
-        if self.N_pre < 1.0 - N_epsilon:
-            logger.info("2T x times bigger then Theta. (x is integer)")
-            self.number_of_2T_chains = int(np.ceil(1.0 / self.N_pre))
-
-            self.f_calc = self.number_of_2T_chains / _2T
-            self.Theta = 1.0 / f_calc
-            logger.warning(
-                "Warning: approximated f_calc to: {0:.2f}".format(self.f_calc)
-            )
-            logger.warning("Number of chains: {0}".format(self.number_of_2T_chains))
-
-        elif self.N_pre < 1.0 + N_epsilon:
-            logger.info("2T comparable with Theta so N becomes 1")
-            self.f_calc = 1.0 / _2T
-            self.Theta = _2T
-            logger.warning(
-                "Warning: approximated f_calc to: {0:.2f}".format(self.f_calc)
-            )
-
-        else:
-            N_max = _N_eff_factor * self.N_eff()
-            logger.debug("N_max: {0}".format(N_max))
-            if self.N_pre > N_max:
-                logger.info("N times Cavity decay time shorter than the sampling period")
-                self.N = N_max
-                self.f_calc = f_calc
-                self.Theta = 1.0 / f_calc
-
-                self.partial_Theta = True
-            else:
-                logger.info("N times Cavity decay time longer than the sampling period")
-                self.N = int(np.round(self.N_pre))
-                self.Theta = _2T * self.N
-                self.f_calc = 1.0 / self.Theta
-                logger.warning(
-                    "Warning: approximated f_calc to: {0:.2f}".format(self.f_calc)
-                )
-
-        self.f_calc_accuracy = 1. - np.abs(self.f_calc - self.desired_f_calc) / self.desired_f_calc
-
-        logger.debug("N: {0}".format(self.N))
-        logger.debug("Number of chains: {0}".format(self.number_of_2T_chains))
-        logger.debug("Theta: {0}".format(self.Theta))
-        logger.debug("Final f_calc: {0}".format(self.f_calc))
-        logger.debug("f_calc accuracy: {0:.2f}%".format(100*self.f_calc_accuracy))
+        # Estimate f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains
+        self.f_calc, self.N, self.N_pre, self.Theta, self.partial_Theta, self.number_of_2T_chains, _ = self.estimate_f_calc(k, desired_f_calc)
 
         # Arrays initialization
         self.n = np.arange(0, self.N + 1, 1)

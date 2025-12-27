@@ -26,7 +26,7 @@ motion_types = ["const", "step", "ramp", "sine", "pulse", "noise"]
 number_of_freqs = 6
 number_of_speeds = 6
 randomly_choose = True
-randomly_choose_count = 0
+randomly_choose_count = 10
 save_generated_scenarios = True  # Set to True to save all generated scenarios
 compare_with_existing_data = True  # Set to True to include existing test data
 
@@ -205,7 +205,7 @@ def test_pure_vs_numba_agree(scenario):
     print(f"Optimal sampling frequency: {f_opt:.3E} Hz")
 
     f_factor = params["freq"]
-    f_calc = f_factor * f_opt
+    f_calc, _ = cavity_pure.estimate_f_calc(ut.k, desired_f_calc=f_factor * f_opt)
 
     # Calculate critical velocity for later use
     critical_velocity = ut.critical_velocity(cavity_pure, ut.lambd)
