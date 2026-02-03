@@ -390,6 +390,7 @@ class Cavity:
     
     def sim_reset(self):
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
+        self.E_in_buffers = [self.E_in_init*np.ones(self.N, dtype=np.complex128) for _ in range(self.number_of_2T_chains)]
         self.Z_last = np.zeros(self.number_of_2T_chains)
         self.Ze = np.zeros(self.N + 1)
         self.Ze_in = 0.
