@@ -392,7 +392,7 @@ class Cavity:
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
         self.E_in_buffers = [self.E_in_init*np.ones(self.N, dtype=np.complex128) for _ in range(self.number_of_2T_chains)]
         self.Z_last = np.zeros(self.number_of_2T_chains)
-        self.Ze = np.zeros(self.N + 1)
+        self.Ze = np.zeros(self.N + 2)
         self.Ze_in = 0.
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
         self.__sim_step_counter__ = 0
@@ -561,7 +561,7 @@ class Cavity:
 
 
 class TestCavity(Cavity):
-    def __init__(self, debug=""):
+    def __init__(self, debug=None):
         Cavity.__init__(self, T_a=0.19, R_a=0.81, R_b=0.81, L=3000.0, debug=debug)
 
 
@@ -571,7 +571,7 @@ class ArmCavity(Cavity):
 
     Finesse 450-460  # "The advanced Virgo longitudinal control system for the O2 observing run" s2.0-S0927650519301835
     '''
-    def __init__(self, debug=""):
+    def __init__(self, debug=None):
         MassThickness = 0.2                   # m
         SubstrateAbsorption = 0.3e-4          # 1/m; bulk absorption coef
         MirrorSubstrateAbsorption = SubstrateAbsorption * MassThickness
@@ -600,7 +600,7 @@ class FilterCavity(Cavity):
     r_b = np.sqrt(1. - t_b**2)-0.00016
     L = 284.9  # m
     '''
-    def __init__(self, debug=""):
+    def __init__(self, debug=None):
         t_a = 0.000562
         T_a = t_a**2
         t_b = 0.00000316  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
