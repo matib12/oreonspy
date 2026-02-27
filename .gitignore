@@ -57,6 +57,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+tests/optical_cavity_testset/*.png
+tests/optical_cavity_testset/*.log
 
 # Translations
 *.mo

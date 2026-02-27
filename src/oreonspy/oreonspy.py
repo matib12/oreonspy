@@ -28,6 +28,8 @@ mpl_logger = logging.getLogger("matplotlib")
 mpl_logger.setLevel(logging.WARNING)
 
 
+mpl_logger = logging.getLogger("matplotlib")
+mpl_logger.setLevel(logging.WARNING)
 
 class Cavity:
     simulation_initialized = False
@@ -588,7 +590,8 @@ class ArmCavity(Cavity):
         #L = np.ceil(3000.0/lambd)*lambd - 0.05*lambd
         L = 3000.0
 
-        Cavity.__init__(self, T_a=T_a, R_a=R_a, R_b=R_b, L=L, debug=debug)
+        # Values from Andrea's thesis
+        Cavity.__init__(self, t_a=0.01377, r_a=0.986, r_b=0.99999, L=L, debug=debug)
 
 
 class FilterCavity(Cavity):
