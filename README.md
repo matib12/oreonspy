@@ -49,13 +49,20 @@ my_cavity.print_sim_params()
 my_cavity.sim_step(d_zeta, E_in_curr=1.)
 ```
 
-## Install Gymnasium
-Install dependencies manually (via conda preferebly) if necessary.
+## Install oreonspy
+### Dependencies
+* numpy>=1.23
+* matplotlib>=3.5
+* numba>=0.60 (optional)
 
-Then install Gymnasium in editable way:
-
+For development install in editable way:
 ```
 git clone https://github.com/Farama-Foundation/Gymnasium.git
 cd Gymnasium/
 pip install --editable .
+```
+
+For permament use pip and for higher performance try with optional numba dependency:
+```
+pip install oreonspy[numba]
 ```

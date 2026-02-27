@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.18"]
 build-backend = "hatchling.build"
 
 [project]
 name = "oreonspy"
-version = "3.3.4"
+version = "4.3.0"
 authors = [
   { name="Andrea Svizzeretto", email="andrea.svizzeretto@studenti.unipg.it" },
   { name="Mateusz Bawaj", email="mateusz.bawaj@unipg.it" },
@@ -24,13 +24,26 @@ license = "GPL-3.0-only"
 readme = "README.md"
 homepage = "https://git.ligo.org/mateusz.bawaj/tesi_svizzeretto/"
 repository = "https://git.ligo.org/mateusz.bawaj/tesi_svizzeretto/"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Development Status :: 5 - Production/Stable",
+]
+dependencies = [
+  "numpy>=1.23",
+  "matplotlib>=3.5",
+]
+
+[project.optional-dependencies]
+numba = [
+  "numba>=0.60",
+]
+
+test = [
+    "pytest",
 ]
 
 [project.urls]
@@ -40,6 +53,5 @@ Issues = "https://git.ligo.org/mateusz.bawaj/oreonspy/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/oreonspy"]
 exclude = [
-  "*test*",
   "*(copy)*"
 ]

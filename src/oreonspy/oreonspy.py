@@ -6,16 +6,27 @@
 # - Andrea Svizzeretto, <andrea.svizzeretto@studenti.unipg.it>
 # - Mateusz Bawaj, <mateusz.bawaj@unipg.it>
 
-from scipy import constants as const
 import numpy as np
 from matplotlib import pyplot as plt
-from collections import deque
 import xml.etree.ElementTree as ET
-
 import logging
+
+from ._pure_impl import heavy as _pure_heavy
+
+try:
+    from ._numba_impl import heavy as _numba_heavy
+    HAS_NUMBA = True
+except Exception as e:
+    HAS_NUMBA = False
+
+c = 299792458.0  # Speed of light in vacuum [m/s]
 
 logger = logging.getLogger(__name__.split(".")[-1])
 logger.setLevel(logging.INFO)
+
+mpl_logger = logging.getLogger("matplotlib")
+mpl_logger.setLevel(logging.WARNING)
+
 
 mpl_logger = logging.getLogger("matplotlib")
 mpl_logger.setLevel(logging.WARNING)
@@ -40,7 +51,7 @@ class Cavity:
             self.r_b = r_b
         
         self.__L__ = L  # [m]
-        self.T = L / const.c  # [s] half cavity round-trip time
+        self.T = L / c  # [s] half cavity round-trip time
 
         self.debug = debug
         if debug is None:
@@ -96,7 +107,7 @@ class Cavity:
 
         return 2. * T * N_eff(r_a, r_b)
         """
-        return self.F() * self.__L__ / (np.pi * const.c)
+        return self.F() * self.__L__ / (np.pi * c)
 
     def Finesse(self):
         """
@@ -121,17 +132,12 @@ class Cavity:
         print("Finesse: {0:.2f}".format(self.Finesse()))
         print("Gain: {0:.2f}".format(self.gain()))
 
-    def simulation(self, k, f_calc, E_in_init):
-        '''
-        With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
+    def estimate_f_calc(self, k, desired_f_calc):
+        """
+        Estimate f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains, f_calc_accuracy
         k: wave number
-        f_calc: calculation frequency
-        E_in_init: initial electric field amplitude
-        '''
-        logger.debug("Simulation started")
-        logger.debug("k: {0}".format(k))
-        logger.debug("Required f_calc: {0}".format(f_calc))
-        logger.debug("E_in_init: {0}".format(E_in_init))
+        desired_f_calc: desired calculation frequency
+        """
         # Useful constants
         _2T = 2.0 * self.T  # Round trip time
         _N_eff_factor = 2   # Multiplier for the Effective number of photon round trips in a cavity
@@ -140,66 +146,84 @@ class Cavity:
         N_epsilon = 0.25     # Epsilon for the number of chains estimation
 
         # Initial values
-        self.k = k
-        self.k2j = -2.0j * k  # Used frequently in step()
-        self.number_of_2T_chains = 1
-        self.N = 1
-        self.desired_f_calc = f_calc
-        self.f_calc_accuracy = 1.
+        number_of_2T_chains = 1
+        N = 1
+        f_calc_accuracy = 1.
 
-        self.E_in_init = E_in_init
+        N_pre = 1.0 / (desired_f_calc * _2T)  # N_pre is the number of round trips in the cavity during the calculation time
+        logger.debug("N_pre: {0}".format(N_pre))
 
-        self.N_pre = 1.0 / (f_calc * _2T)  # N_pre is the number of round trips in the cavity during the calculation time
-        logger.debug("N_pre: {0}".format(self.N_pre))
+        partial_Theta = False
 
-        self.partial_Theta = False
-
-        # Number of chains must be integer
-        if self.N_pre < 1.0 - N_epsilon:
+        if N_pre < 1.0 - N_epsilon:
             logger.info("2T x times bigger then Theta. (x is integer)")
-            self.number_of_2T_chains = int(np.round(1.0 / self.N_pre))
+            number_of_2T_chains = int(np.ceil(1.0 / N_pre))
 
-            self.f_calc = self.number_of_2T_chains / _2T
-            self.Theta = 1.0 / f_calc
+            f_calc = number_of_2T_chains / _2T
+            Theta = 1.0 / f_calc
             logger.warning(
-                "Warning: approximated f_calc to: {0:.2f}".format(self.f_calc)
+                "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
             )
-            logger.warning("Number of chains: {0}".format(self.number_of_2T_chains))
+            logger.warning("Number of chains: {0}".format(number_of_2T_chains))
 
-        elif self.N_pre < 1.0 + N_epsilon:
+        elif N_pre < 1.0 + N_epsilon:
             logger.info("2T comparable with Theta so N becomes 1")
-            self.f_calc = 1.0 / _2T
-            self.Theta = _2T
+            f_calc = 1.0 / _2T
+            Theta = _2T
             logger.warning(
-                "Warning: approximated f_calc to: {0:.2f}".format(self.f_calc)
+                "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
             )
-
         else:
             N_max = _N_eff_factor * self.N_eff()
             logger.debug("N_max: {0}".format(N_max))
-            if self.N_pre > N_max:
+            if N_pre > N_max:
                 logger.info("N times Cavity decay time shorter than the sampling period")
-                self.N = N_max
-                self.f_calc = f_calc
-                self.Theta = 1.0 / f_calc
+                N = N_max
+                f_calc = desired_f_calc
+                Theta = 1.0 / desired_f_calc
 
-                self.partial_Theta = True
+                partial_Theta = True
             else:
                 logger.info("N times Cavity decay time longer than the sampling period")
-                self.N = int(np.round(self.N_pre))
-                self.Theta = _2T * self.N
-                self.f_calc = 1.0 / self.Theta
+                N = int(np.round(N_pre))
+                Theta = _2T * N
+                f_calc = 1.0 / Theta
                 logger.warning(
-                    "Warning: approximated f_calc to: {0:.2f}".format(self.f_calc)
+                    "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
                 )
 
-        self.f_calc_accuracy = 1. - np.abs(self.f_calc - self.desired_f_calc) / self.desired_f_calc
-        
-        logger.debug("N: {0}".format(self.N))
-        logger.debug("Number of chains: {0}".format(self.number_of_2T_chains))
-        logger.debug("Theta: {0}".format(self.Theta))
-        logger.debug("Final f_calc: {0}".format(self.f_calc))
-        logger.debug("f_calc accuracy: {0:.2f}%".format(100*self.f_calc_accuracy))
+        f_calc_accuracy = 1. - np.abs(f_calc - desired_f_calc) / desired_f_calc
+
+        logger.debug("N: {0}".format(N))
+        logger.debug("Number of chains: {0}".format(number_of_2T_chains))
+        logger.debug("Theta: {0}".format(Theta))
+        logger.debug("Final f_calc: {0}".format(f_calc))
+        logger.debug("f_calc accuracy: {0:.2f}%".format(100*f_calc_accuracy))
+
+        return f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains, f_calc_accuracy
+
+    def simulation(self, k, desired_f_calc, E_in_init, backend="auto"):
+        '''
+        With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
+        k: wave number
+        f_calc: calculation frequency
+        E_in_init: initial electric field amplitude
+        backend: "pure" | "numba" | "auto"
+        '''
+        logger.debug("Simulation started")
+        logger.debug("k: {0}".format(k))
+        logger.debug("Desired f_calc: {0}".format(desired_f_calc))
+        logger.debug("E_in_init: {0}".format(E_in_init))
+
+
+        # Initial values
+        self.k = k
+        self.k2j = -2.0j * k  # Used frequently in step()
+
+        self.E_in_init = E_in_init
+
+        # Estimate f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains
+        self.f_calc, self.N, self.N_pre, self.Theta, self.partial_Theta, self.number_of_2T_chains, _ = self.estimate_f_calc(k, desired_f_calc)
 
         # Arrays initialization
         self.n = np.arange(0, self.N + 1, 1)
@@ -216,6 +240,32 @@ class Cavity:
         logger.debug("e2iknL: {0}".format(self.e2iknL))
         logger.debug("rarbne2iknL: {0}".format(self.rarbne2iknL))
 
+        plot_debug = False
+        if plot_debug:
+            # Plot self.rarbn, self.e2iknL, and self.rarbne2iknL in the same figure
+            fig, ax1 = plt.subplots()
+
+            # Plot self.rarbn
+            ax1.plot(self.n, self.rarbn, label="$(r_a r_b)^n$", color="blue")
+            ax1.set_xlabel("n")
+            ax1.set_ylabel("$(r_a r_b)^n$", color="blue")
+            ax1.tick_params(axis="y", labelcolor="blue")
+
+            # Plot self.e2iknL magnitude
+            #ax1.plot(self.n, np.abs(self.e2iknL), label="|$\exp(-2iknL)$|", color="green")  # Always 1
+            #ax1.plot(self.n, np.abs(self.rarbne2iknL), label="|$(r_a r_b)^n \cdot \exp(-2iknL)$|", color="red")  # Equal to self.rarbn
+
+            # Create a secondary y-axis for the phase
+            ax2 = ax1.twinx()
+            ax2.plot(self.n, np.unwrap(np.angle(self.e2iknL)), label=r"Phase of $\exp(-2iknL)$", color="orange", linestyle="--", marker='o')
+            ax2.set_ylabel("Phase [rad]", color="black")
+            ax2.tick_params(axis="y", labelcolor="black")
+
+            # Add legends
+            fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
+            plt.title(r"Decay and Phase of $(r_a r_b)^n$, $\exp(-2iknL)$, and $(r_a r_b)^n \cdot \exp(-2iknL)$")
+            plt.show()
+
         self.frac,_ = np.modf(self.__L__*k/(2.*np.pi))
         self.phi = 2.*np.pi*self.frac
         logger.debug("phi: {0}".format(self.phi))
@@ -226,21 +276,44 @@ class Cavity:
         logger.debug("E_adiabatic angl: {0}".format(np.angle(self.airy_phi)))
 
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
+
+        # Define a list of deque buffers for the electric field
+        self.E_in_buffers = [E_in_init*np.ones(self.N, dtype=np.complex128) for _ in range(self.number_of_2T_chains)]
         logger.debug("E_last cplx: {0}".format(self.E_last))
         logger.debug("E_last abs : {0}".format(np.abs(self.E_last)))
         logger.debug("E_last angl: {0}".format(np.angle(self.E_last)))
 
-        # Define a list of deque buffers for the electric field
-        self.E_in_buffers = [deque(E_in_init*np.ones(self.N, dtype=np.complex128), maxlen=self.N) for _ in range(self.number_of_2T_chains)]
-
-        self.Ze = np.zeros(self.N + 1)
-        self.Z_last = np.zeros(self.number_of_2T_chains)
-        self.d_zeta_last = np.zeros(self.number_of_2T_chains)
+        self.Ze = np.zeros(self.N + 2, dtype=np.float64)
+        self.Z_last = np.zeros(self.number_of_2T_chains, dtype=np.float64)
+        self.d_zeta_last = np.zeros(self.number_of_2T_chains, dtype=np.float64)
         self.Ze_in = 0.
 
         self.E_in = np.zeros(self.N, dtype=np.complex128)
 
         self.__sim_step_counter__ = 0
+
+        global heavy
+
+        if backend == "pure":
+            heavy = _pure_heavy
+
+        elif backend == "numba":
+            if not HAS_NUMBA:
+                raise RuntimeError(
+                    "Numba backend requested but numba is not available. "
+                    "Install with `pip install mypkg[numba]`."
+                )
+            heavy = _numba_heavy
+
+        elif backend == "auto":
+            if HAS_NUMBA:
+                heavy = _numba_heavy
+            else:
+                heavy = _pure_heavy
+
+        else:
+            raise ValueError(f"Unknown backend {backend!r}. "
+                                "Use 'pure', 'numba' or 'auto'.")
 
         self.simulation_initialized = True
     
@@ -256,55 +329,18 @@ class Cavity:
             print("Initialize first")
             return
 
-        Sum = 0.0
-
         chain_idx = self.__sim_step_counter__ % self.number_of_2T_chains
         #logger.debug("Chain idx: {0}".format(chain_idx))
 
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
-        Z = np.sum(self.d_zeta_last) + self.Z_last[chain_idx]
-
-        #logger.debug("Z_last: {0}".format(self.Z_last))
-
-        Z_start = self.Z_last[chain_idx]
-        if self.partial_Theta:
-            Z_start += np.interp(self.N_pre-self.N , [0, self.N_pre], [0, d_zeta])
-            #logger.debug("Z_start: {0}".format(Z_start))
-
-        self.Ze[1:] = np.linspace(Z, Z_start, self.N, endpoint=True)
-        self.Ze = np.add.accumulate(self.Ze)
-
-        #self.Ze[1:] = np.linspace(Z_start, Z, self.N, endpoint=True)[::-1]
-        #logger.debug(self.Ze)
-
-        #self.Ze = np.add.accumulate(self.Ze)
-        #logger.debug("Ze: {0}".format(self.Ze))
-
-        # Update input electric field buffer
-        self.E_in_buffers[chain_idx].appendleft(E_in_curr)
-
-        # Calculate the sum
-        for idx in range(self.N):
-            # print("index: {0}".format(idx))
-            Sum = Sum + self.rarbne2iknL[idx] * np.exp(
-                self.k2j * self.Ze[idx]
-            ) * self.E_in_buffers[chain_idx][idx]
-
-        E = (
-            self.t_a * Sum
-            + self.rarbne2iknL[self.N]
-            * np.exp(self.k2j * self.Ze[self.N])
-            * self.E_last[chain_idx]
-        )
+        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.partial_Theta, self.N_pre, self.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.k2j, self.t_a, self.E_last[chain_idx])
 
         #if not self.partial_Theta:
         self.E_last[chain_idx] = E
 
         #logger.debug("E_last: {0}".format(self.E_last))
-        
-        self.Z_last[chain_idx] = Z
 
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
@@ -356,8 +392,9 @@ class Cavity:
     
     def sim_reset(self):
         self.E_last = self.airy_phi*np.ones(self.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.E_in_init))
+        self.E_in_buffers = [self.E_in_init*np.ones(self.N, dtype=np.complex128) for _ in range(self.number_of_2T_chains)]
         self.Z_last = np.zeros(self.number_of_2T_chains)
-        self.Ze = np.zeros(self.N + 1)
+        self.Ze = np.zeros(self.N + 2)
         self.Ze_in = 0.
         self.d_zeta_last = np.zeros(self.number_of_2T_chains)
         self.__sim_step_counter__ = 0
@@ -381,7 +418,7 @@ class Cavity:
 
         plt.plot(np.abs(self.e2iknL), label="Mag")
         plt.plot(np.angle(self.e2iknL), label="Phase")
-        plt.title("$\exp(-2ik(n-1)L)$")
+        plt.title(r"$\exp(-2ik(n-1)L)$")
         plt.xlabel("n")
         plt.legend()
 
@@ -389,7 +426,7 @@ class Cavity:
         return 1. / (1. + self.F() * np.sin(phi)**2)
     
     def E_adiabatic(self, E_in, phi):
-        """
+        r"""
         Calculate the adiabatic electric field inside the cavity based on the input electric field.
 
         This method uses the formula from Rakhmanov Eq. 1.72 to compute the adiabatic 
@@ -523,6 +560,7 @@ class Cavity:
         if hasattr(self, 'file_handler') and self.file_handler:
             self.file_handler.close()
             logger.removeHandler(self.file_handler)
+
 
 class TestCavity(Cavity):
     def __init__(self, debug=None):
