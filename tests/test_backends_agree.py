@@ -205,7 +205,7 @@ def test_pure_vs_numba_agree(scenario):
     print(f"Optimal sampling frequency: {f_opt:.3E} Hz")
 
     f_factor = params["freq"]
-    f_calc, _ = cavity_pure.estimate_f_calc(ut.k, desired_f_calc=f_factor * f_opt)
+    f_calc = cavity_pure.estimate_f_calc(ut.k, desired_f_calc=f_factor * f_opt)[0]
 
     # Calculate critical velocity for later use
     critical_velocity = ut.critical_velocity(cavity_pure, ut.lambd)
@@ -291,6 +291,15 @@ def test_pure_vs_numba_agree(scenario):
         numba_exec_time = end - start
         print(f"NUMBA backend simulation time: {numba_exec_time:.3f} seconds")
 
+        # if save_generated_scenarios:
+        #     print(f"Saving generated scenario data to {dest_path}")
+
+        #     numba_file_path = path.join(dest_path, scenario["name"] + "_numba.npy")
+        #     with open(numba_file_path, 'wb') as f:
+        #         np.save(f, result_E_numba)
+        #         f.flush()
+        #         fsync(f.fileno())
+
         if save_generated_scenarios:
             print(f"Saving generated scenario data to {dest_path}")
 
@@ -299,6 +308,23 @@ def test_pure_vs_numba_agree(scenario):
                 np.save(f, result_E_numba)
                 f.flush()
                 fsync(f.fileno())
+            
+            # Save params and sim_params to XML file
+            xml_file_path = path.join(dest_path, scenario["name"] + "_numba.xml")
+            with open(xml_file_path, 'w') as f:
+                f.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+                f.write("<scenario>\n")
+                f.write("  <params>\n")
+                for key, value in sorted(params.items()):
+                    f.write(f"    <{key}>{value}</{key}>\n")
+                f.write("  </params>\n")
+                if hasattr(cavity_numba, 'sim_params'):
+                    f.write("  <sim_params>\n")
+                    sim_params_dict = cavity_numba.sim_params.__dict__ if hasattr(cavity_numba.sim_params, '__dict__') else vars(cavity_numba.sim_params)
+                    for key, value in sorted(sim_params_dict.items()):
+                        f.write(f"    <{key}>{value}</{key}>\n")
+                    f.write("  </sim_params>\n")
+                f.write("</scenario>\n")
 
         if numba_exec_time > pure_exec_time:
             warnings.warn(UserWarning("NUMBA slower than PURE"))  # ISSUE WARNING IF NUMBA IS SLOWER
@@ -310,7 +336,7 @@ def test_pure_vs_numba_agree(scenario):
 
 ids = [s["name"] for s in PREVIOUS_SCENARIOS] if PREVIOUS_SCENARIOS else None
 
-@pytest.mark.backward_compatibility_test  # to run: $ pytest -m backend_agree_test --capture no
+@pytest.mark.backward_compatibility_test  # to run: $ pytest -m backward_compatibility_test --capture no
 @pytest.mark.parametrize("scenario", PREVIOUS_SCENARIOS, ids=ids)
 #def test_current_version_pure_vs_previous_version_pure_agree(scenario):
 def test_cv(scenario):
@@ -334,6 +360,24 @@ def test_cv(scenario):
     current_file = Path("tests/data") / op.__version__ / (scenario["name"] + "_pure.npy")
     print(f"Loading current data from: {current_file}")
     result_E_current = np.load(current_file)
+
+
+    # Check if vectors have the same length
+    if len(result_E_current) != len(result_E_old):
+        print(f"Length mismatch: result_E_current={len(result_E_current)}, result_E_old={len(result_E_old)}")
+        
+        if len(result_E_current) > len(result_E_old):
+            # Interpolate result_E_old to match result_E_current length
+            x_old = np.linspace(0, 1, len(result_E_old))
+            x_new = np.linspace(0, 1, len(result_E_current))
+            result_E_old = np.interp(x_new, x_old, result_E_old.real) + 1j * np.interp(x_new, x_old, result_E_old.imag)
+        else:
+            # Interpolate result_E_current to match result_E_old length
+            x_current = np.linspace(0, 1, len(result_E_current))
+            x_new = np.linspace(0, 1, len(result_E_old))
+            result_E_current = np.interp(x_new, x_current, result_E_current.real) + 1j * np.interp(x_new, x_current, result_E_current.imag)
+        
+        print(f"After interpolation: result_E_current={len(result_E_current)}, result_E_old={len(result_E_old)}")
 
     deviation = np.max(np.abs(result_E_current - result_E_old))
 

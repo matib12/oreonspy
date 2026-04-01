@@ -173,3 +173,6 @@ cavity_*.xml
 
 # Numpy binary files
 *.npy
+
+# Test data XML files in the tests/data directory should be ignored
+tests/data/*/*.xml

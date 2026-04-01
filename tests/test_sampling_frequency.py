@@ -370,7 +370,8 @@ def test_frequencies_agree(scenario):
     plt.legend()
     plt.title('All Pure Solutions')
     plt.grid(True)
-    plt.show()
+    #plt.show()  # Optional: comment out if you don't want to see the plot during testing
+    plt.close()
 
     # Compare all results from pure and numba implementations
     for a, b in combinations(pure_results_list, 2):
@@ -379,7 +380,7 @@ def test_frequencies_agree(scenario):
         z_step_numba = timesteps_list[str(b[0])]
 
         try:
-            test_utils.compare_vectors(z_step_pure, z_step_numba, a[1], b[1], plot=True)
+            test_utils.compare_vectors(z_step_pure, z_step_numba, a[1], b[1], plot=False)
         except AssertionError as e:
             assert True
             # plt.figure(figsize=(12, 6))
