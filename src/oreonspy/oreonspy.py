@@ -54,9 +54,9 @@ class SimulationParams:
     E_in_init: Optional[complex] = None
     f_calc: Optional[float] = None
     N: Optional[int] = None
-    N_pre: Optional[float] = None
     Theta: Optional[float] = None
     partial_Theta: Optional[bool] = None
+    Theta_fraction: Optional[float] = None
     number_of_2T_chains: Optional[int] = None
     f_calc_accuracy: Optional[float] = None
 
@@ -179,82 +179,120 @@ class Cavity:
         return self.params.t_a / (1.0 - self.params.r_a * self.params.r_b)
 
     def print_params(self):
-        print("Coefficient of finesse: {0:.2f}".format(self.F()))
-        print("Half round-trip time: {0:.2e} [s]".format(self.T))
-        print("Effective number of photon round trip: {0:d}".format(self.N_eff()))
-        print("Tau_s: {0:.2e} [s]".format(self.tau_s()))
-        print("Finesse: {0:.2f}".format(self.Finesse()))
-        print("Gain: {0:.2f}".format(self.gain()))
-
-    def estimate_f_calc(self, k, desired_f_calc):
         """
-        Estimate f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains, f_calc_accuracy
-        k: wave number
-        desired_f_calc: desired calculation frequency
+        Print cavity parameters
         """
-        # Useful constants
-        _2T = 2.0 * self.params.T  # Round trip time
-        _N_eff_factor = 2   # Multiplier for the Effective number of photon round trips in a cavity
+        for field_name, field_value in self.params.__dict__.items():
+            print(f"{field_name}: {field_value}")
 
-        # Algorithm parameters
-        N_epsilon = 0.25     # Epsilon for the number of chains estimation
+    def number_of_subhistories(self, eta_2T):
+        """
+        Compute the number of phase-shifted subhistories required by the simulator.
 
-        # Initial values
-        number_of_2T_chains = 1
-        N = 1
-        f_calc_accuracy = 1.
+        Parameters
+        ----------
+        eta_2T : float
+            dimensionless round-trip normalized time-step expressing ratio
+            between the sampling period and the cavity round-trip time.
+            Must be strictly positive.
 
-        N_pre = 1.0 / (desired_f_calc * _2T)  # N_pre is the number of round trips in the cavity during the calculation time
-        logger.debug("N_pre: {0}".format(N_pre))
+        Returns
+        -------
+        int
+            Number of subhistories:
+            - 1 when eta_2T < 1
+            - round(eta_2T) otherwise
+        """
+        assert eta_2T > 0, "eta_2T must be positive"
+        return int(np.round(1.0/eta_2T) if eta_2T < 1. else 1)
 
-        partial_Theta = False
+    def round_for_inverse_curve(self, eta_2T):
+        """
+        Select the integer order used by the inverse-curve rounding rule.
 
-        if N_pre < 1.0 - N_epsilon:
-            logger.info("2T x times bigger then Theta. (x is integer)")
-            number_of_2T_chains = int(np.ceil(1.0 / N_pre))
+        For each value `eta_2T`, let `k0 = floor(eta_2T)` and define the
+        switching boundary
 
-            f_calc = number_of_2T_chains / _2T
-            Theta = 1.0 / f_calc
-            logger.warning(
-                "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
-            )
-            logger.warning("Number of chains: {0}".format(number_of_2T_chains))
+            b = 2*k0*(k0 + 1) / (2*k0 + 1)
 
-        elif N_pre < 1.0 + N_epsilon:
-            logger.info("2T comparable with Theta so N becomes 1")
-            f_calc = 1.0 / _2T
-            Theta = _2T
-            logger.warning(
-                "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
-            )
+        The returned integer is:
+        - `k0` when `eta_2T < b`
+        - `k0 + 1` otherwise
+
+        Parameters
+        ----------
+        eta_2T : float or array-like of float
+            Dimensionless normalized time-step value(s). Must be strictly positive.
+
+        Returns
+        -------
+        tuple
+            `(k, b)` where:
+            - `k` is the selected integer order (int for scalar input, ndarray for array input)
+            - `b` is the corresponding boundary value(s) used for the decision
+        """
+        assert np.all(np.asarray(eta_2T) > 0), "eta_2T must be positive"
+        eta_2T_arr = np.asarray(eta_2T, dtype=float)
+
+        k0 = np.floor(eta_2T_arr)
+        b = 2 * k0 * (k0 + 1) / (2 * k0 + 1)
+        k = np.where(eta_2T_arr < b, k0, k0 + 1).astype(int)
+
+        # Preserve scalar return type for scalar input
+        if np.isscalar(eta_2T):
+            return int(k), float(b)
+        return k, b
+
+    def estimate_f_calc(self, f_calc_desired):
+        """
+        Simulator case algorithm from cavity.simulation() in oreonspy 3.2.3.
+        
+        Parameters
+        ----------
+        f_calc_desired -- the desired sampling frequency
+
+        Returns
+        -------
+        f_calc -- the actual sampling frequency used by the simulator
+        N -- the number of round trips in the cavity during the calculation time
+        Theta -- the calculation time step
+        partial_Theta -- a flag indicating whether the calculation time step is partially determined
+        n_of_subhistories -- the number of phase-shifted subhistories required by the simulator
+
+        """
+        f_2T = 0.5 / self.params.T  # Half-round trip time
+
+        N = 1  # Initlized to one in the constructor.
+        n_of_subhistories = 1  # Initlized to one in the constructor.
+        partial_Theta = False  # Initlized to False in the constructor.
+        Theta_fraction = 1.0  # Initlized to 1.0 in the constructor.
+
+        _N_eff_factor = 2
+
+        eta_2T = f_2T/(f_calc_desired)
+
+        if f_calc_desired > f_2T:
+            n_of_subhistories = self.number_of_subhistories(eta_2T)
+            f_calc = f_2T * n_of_subhistories
         else:
             N_max = _N_eff_factor * self.N_eff()
-            logger.debug("N_max: {0}".format(N_max))
-            if N_pre > N_max:
-                logger.info("N times Cavity decay time shorter than the sampling period")
+            if f_calc_desired < (f_2T / N_max):
                 N = N_max
-                f_calc = desired_f_calc
-                Theta = 1.0 / desired_f_calc
-
+                f_calc = f_calc_desired  # In this case desired f_calc is exactly simulated.
                 partial_Theta = True
+                Theta_fraction = 1.0 - (N * f_calc * 2.0 * self.params.T)
             else:
-                logger.info("N times Cavity decay time longer than the sampling period")
-                N = int(np.round(N_pre))
-                Theta = _2T * N
-                f_calc = 1.0 / Theta
-                logger.warning(
-                    "Warning: approximated f_calc to: {0:.2f}".format(f_calc)
-                )
+                N = self.round_for_inverse_curve(eta_2T)[0]
+                f_calc = f_2T/N  # in Hz
 
-        f_calc_accuracy = 1. - np.abs(f_calc - desired_f_calc) / desired_f_calc
+        Theta = 1.0 / f_calc  # in Seconds
 
         logger.debug("N: {0}".format(N))
-        logger.debug("Number of chains: {0}".format(number_of_2T_chains))
+        logger.debug("Number of subhistories: {0}".format(n_of_subhistories))
         logger.debug("Theta: {0}".format(Theta))
         logger.debug("Final f_calc: {0}".format(f_calc))
-        logger.debug("f_calc accuracy: {0:.2f}%".format(100*f_calc_accuracy))
-
-        return f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains, f_calc_accuracy
+                
+        return f_calc, N, Theta, partial_Theta, Theta_fraction, n_of_subhistories
 
     def simulation(self, k, desired_f_calc, E_in_init, backend="auto"):
         '''
@@ -274,7 +312,9 @@ class Cavity:
         k2j = -2.0j * k  # Used frequently in step()
 
         # Estimate f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains
-        f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains, f_calc_accuracy = self.estimate_f_calc(k, desired_f_calc)
+        f_calc, N, Theta, partial_Theta, Theta_fraction, number_of_2T_chains = self.resolve_sampling_frequency(desired_f_calc)
+
+        f_calc_accuracy = 1. - np.abs(f_calc - desired_f_calc) / desired_f_calc
 
         self.sim_params = SimulationParams(
             k=k,
@@ -283,9 +323,9 @@ class Cavity:
             E_in_init=E_in_init,
             f_calc=f_calc,
             N=N,
-            N_pre=N_pre,
             Theta=Theta,
             partial_Theta=partial_Theta,
+            Theta_fraction=Theta_fraction,
             number_of_2T_chains=number_of_2T_chains,
             f_calc_accuracy=f_calc_accuracy,
         )
@@ -402,7 +442,7 @@ class Cavity:
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
-        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.sim_params.partial_Theta, self.sim_params.N_pre, self.sim_params.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.sim_params.k2j, self.params.t_a, self.E_last[chain_idx])
+        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.sim_params.partial_Theta, self.sim_params.Theta_fraction, self.sim_params.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.sim_params.k2j, self.params.t_a, self.E_last[chain_idx])
 
         #if not self.partial_Theta:
         self.E_last[chain_idx] = E
@@ -556,24 +596,33 @@ class Cavity:
         except Exception as e:
             logger.error(f"Error writing the XML file: {e}")
 
-    def xml_load(self, filename):
+    def xml_load(self, filename=None):
         '''
-        Load the parameters of the Cavity object from an XML file.
+        Load cavity parameters from an XML file.
 
-        Parameters:
-        --------
-        filename (str): The path to the XML file containing the parameters.
+        This method supports two call styles:
 
-        Example:
-        --------
-        cavity = Cavity()
-        cavity.xml_load('path/to/parameters.xml')
+        1) Instance style (updates the existing object):
+           cavity = Cavity()
+           cavity.xml_load('path/to/parameters.xml')
 
-        This will create a Cavity classobject named "cavity" with the parameters from the XML file "parameters.xml".
+        2) Class style (creates and returns a loaded object):
+           cavity = Cavity.xml_load('path/to/parameters.xml')
         '''
+        if isinstance(self, Cavity):
+            cavity_obj = self
+            if filename is None:
+                raise TypeError("Cavity.xml_load() missing 1 required positional argument: 'filename'")
+            xml_filename = filename
+        else:
+            # Allow class-style call Cavity.xml_load('file.xml') by interpreting
+            # the first argument as filename and creating a new object.
+            cavity_obj = Cavity()
+            xml_filename = self
+
         # Load the XML file
         try:
-            tree = ET.parse(filename)
+            tree = ET.parse(xml_filename)
             root = tree.getroot()
         except ET.ParseError as e:
             logger.error(f"Error parsing the XML file: {e}")
@@ -591,7 +640,8 @@ class Cavity:
             params[param.tag] = float(param.text)
 
         # Reinitialize the Cavity object with the loaded parameters
-        self.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=self.debug)
+        cavity_obj.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=cavity_obj.debug)
+        return cavity_obj
     
     def E_ref(self, E, E_in_laser=1., Ze_in=0.):
         """
