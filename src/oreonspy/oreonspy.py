@@ -312,7 +312,7 @@ class Cavity:
         k2j = -2.0j * k  # Used frequently in step()
 
         # Estimate f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains
-        f_calc, N, Theta, partial_Theta, Theta_fraction, number_of_2T_chains = self.resolve_sampling_frequency(desired_f_calc)
+        f_calc, N, Theta, partial_Theta, Theta_fraction, number_of_2T_chains = self.estimate_f_calc(desired_f_calc)
 
         f_calc_accuracy = 1. - np.abs(f_calc - desired_f_calc) / desired_f_calc
 
