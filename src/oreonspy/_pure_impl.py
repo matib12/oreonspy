@@ -1,13 +1,13 @@
 import numpy as np
 
-def heavy(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, N_pre, N, Ze, E_in_buffers_chain_idx, rarbne2iknL, k2j, t_a, E_last_chain_idx):
+def heavy(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, Theta_fraction, N, Ze, E_in_buffers_chain_idx, rarbne2iknL, k2j, t_a, E_last_chain_idx):
     Z = np.sum(d_zeta_last) + Z_last_chain_idx
 
     #logger.debug("Z_last: {0}".format(Z_last))
 
     Z_start = Z_last_chain_idx
     if partial_Theta:
-        Z_start += np.interp(N_pre-N , [0, N_pre], [0, d_zeta])
+        Z_start +=  Theta_fraction * d_zeta
         #logger.debug("Z_start: {0}".format(Z_start))
 
     Ze[1:] = np.linspace(Z, Z_start, num=N + 1)
