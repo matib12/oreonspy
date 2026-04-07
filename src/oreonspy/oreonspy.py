@@ -437,7 +437,7 @@ class Cavity:
         self.d_zeta_last = np.zeros(
             self.sim_params.number_of_2T_chains, dtype=np.float64
         )
-        self.Ze_in = 0.0
+        self.total_input_mirror_displacement = 0.0
 
         self.E_in = np.zeros(self.sim_params.N, dtype=np.complex128)
 
@@ -469,7 +469,7 @@ class Cavity:
 
         self.simulation_initialized = True
 
-    def __sim_step__(self, d_zeta=0.0, E_in_curr=1.0):
+    def __sim_step__(self, d_zeta=0.0, input_electric_field_amplitude=1.0):
         """
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
 
@@ -489,7 +489,7 @@ class Cavity:
 
         self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(
             d_zeta,
-            E_in_curr,
+            input_electric_field_amplitude,
             self.d_zeta_last,
             self.Z_last[chain_idx],
             self.sim_params.partial_Theta,
@@ -512,7 +512,7 @@ class Cavity:
 
         return E
 
-    def sim_step(self, E_in_laser=1.0, d_zeta_in=0.0, d_zeta=0.0):
+    def sim_step(self, input_electric_field=1.0, input_mirror_displacement=0.0, output_mirror_displacement=0.0):
         """
         Simulate the electric field propagation through a two-mirror cavity.
         This method calculates the electric field after propagating through a
@@ -520,41 +520,41 @@ class Cavity:
 
         Parameters:
         -----------
-        E_in_laser : float, optional
+        input_electric_field_amplitude : complex, optional
             The initial electric field amplitude emitted by the laser and referred to the external reference frame (default is 1.0).
-        d_zeta_1 : float, optional
+        input_mirror_displacement : float, optional
             The displacement of the input mirror (default is 0.0).
-        d_zeta_2 : float, optional
-            The displacement of the back mirror (default is 0.0).
+        output_mirror_displacement : float, optional
+            The displacement of the output mirror (default is 0.0).
 
         Returns:
         --------
         tuple:
             - E : complex
             The electric field inside the cavity after propagation.
-            - E_ref_val : complex
+            - reflected_electric_field : complex
             The reflected electric field from the cavity.
 
         Notes:
         ------
         - `self.k` is the wave number.
-        - `self.Ze_in` is the sum of previous mirror displacements.
+        - `self.total_input_mirror_displacement` is the sum of previous mirror displacements.
         """
 
-        # Total cavity length
-        d_zeta_tot = d_zeta - d_zeta_in
+        # Total cavity length deviation from the initial length
+        cavity_length_variation = output_mirror_displacement - input_mirror_displacement
 
-        # Position of the input mirror
-        self.Ze_in += d_zeta_in
+        # Displacement of the input mirror from the initial position
+        self.total_input_mirror_displacement += input_mirror_displacement
 
         # Electric field on the input mirror
-        E_in_laser = E_in_laser * np.exp(self.sim_params.k2j * self.Ze_in)
+        input_electric_field = input_electric_field * np.exp(self.sim_params.k2j * self.total_input_mirror_displacement)
 
-        E = self.__sim_step__(d_zeta=d_zeta_tot, E_in_curr=E_in_laser)
+        electric_field_inside_cavity = self.__sim_step__(d_zeta=cavity_length_variation, input_electric_field_amplitude=input_electric_field)
 
-        E_ref_val = self.E_ref(E=E, E_in_laser=E_in_laser, Ze_in=self.Ze_in)
+        reflected_electric_field = self.compute_reflected_field(E=electric_field_inside_cavity, E_in_laser=input_electric_field, Ze_in=self.total_input_mirror_displacement)
 
-        return E, E_ref_val
+        return electric_field_inside_cavity, reflected_electric_field
 
     def sim_reset(self):
         self.E_last = (
@@ -568,7 +568,7 @@ class Cavity:
         ]
         self.Z_last = np.zeros(self.sim_params.number_of_2T_chains)
         self.Ze = np.zeros(self.sim_params.N + 2)
-        self.Ze_in = 0.0
+        self.total_input_mirror_displacement = 0.0
         self.d_zeta_last = np.zeros(self.sim_params.number_of_2T_chains)
         self.__sim_step_counter__ = 0
 
@@ -721,7 +721,7 @@ class Cavity:
         )
         return cavity_obj
 
-    def E_ref(self, E, E_in_laser=1.0, Ze_in=0.0):
+    def compute_reflected_field(self, E, E_in_laser=1.0, Ze_in=0.0):
         """
         TODO: verify what is the phase parameter
         Calculate the reflected electric field (E_ref) based on the input electric field (E) and the input laser electric field (E_in_laser).
