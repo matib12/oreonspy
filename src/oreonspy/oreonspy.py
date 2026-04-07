@@ -17,6 +17,7 @@ from ._pure_impl import heavy as _pure_heavy
 
 try:
     from ._numba_impl import heavy as _numba_heavy
+
     HAS_NUMBA = True
 except Exception as e:
     HAS_NUMBA = False
@@ -64,14 +65,25 @@ class SimulationParams:
 class Cavity:
     simulation_initialized = False
 
-    def __init__(self, t_a=0.001, T_a=None, r_a=0.99, R_a=None, r_b=0.999, R_b=None, L=3000.0, debug=None, log_file=None):
+    def __init__(
+        self,
+        t_a=0.001,
+        T_a=None,
+        r_a=0.99,
+        R_a=None,
+        r_b=0.999,
+        R_b=None,
+        L=3000.0,
+        debug=None,
+        log_file=None,
+    ):
         self.sim_params = SimulationParams()
 
         if T_a is not None:
             t_a = np.sqrt(T_a)
         else:
             t_a = t_a
-        
+
         if R_a is not None:
             r_a = np.sqrt(R_a)
         else:
@@ -83,8 +95,8 @@ class Cavity:
             r_b = r_b
 
         self.params = CavityParams(t_a=t_a, r_a=r_a, r_b=r_b, __L__=L)
-        #self._sync_param_aliases()
-        
+        # self._sync_param_aliases()
+
         self.debug = debug
         if debug is None:
             logger.disabled = True
@@ -95,13 +107,15 @@ class Cavity:
                 logger.setLevel(debug)
                 self.file_handler = logging.FileHandler(log_file)
                 self.file_handler.setLevel(debug)
-                formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+                formatter = logging.Formatter(
+                    "%(asctime)s - %(levelname)s - %(message)s"
+                )
                 self.file_handler.setFormatter(formatter)
                 logger.addHandler(self.file_handler)
             else:
                 logging.basicConfig(level=debug)
                 logger.setLevel(debug)
-            
+
             logger.debug("Cavity initialized with parameters:")
             logger.debug("t_a: {0}".format(self.params.t_a))
             logger.debug("r_a: {0}".format(self.params.r_a))
@@ -109,7 +123,8 @@ class Cavity:
             logger.debug("L: {0}".format(self.params.__L__))
             logger.debug("T: {0}".format(self.params.T))
             logger.debug("Debug level: {0}".format(debug))
-    '''
+
+    """
     def _sync_param_aliases(self):
         self.t_a = self.params.t_a
         self.r_a = self.params.r_a
@@ -129,7 +144,8 @@ class Cavity:
         self.partial_Theta = self.sim_params.partial_Theta
         self.sim_params.number_of_2T_chains = self.sim_params.number_of_2T_chains
         self.f_calc_accuracy = self.sim_params.f_calc_accuracy     
-    '''
+    """
+
     def cavity_loss(self):
         Loss = 1.0 - np.power(self.params.t_a, 2) - np.power(self.params.r_a, 2)
 
@@ -150,7 +166,12 @@ class Cavity:
         """
         Coefficient of finesse
         """
-        return 4.0 * self.params.r_a * self.params.r_b / np.power(1.0 - self.params.r_a * self.params.r_b, 2)
+        return (
+            4.0
+            * self.params.r_a
+            * self.params.r_b
+            / np.power(1.0 - self.params.r_a * self.params.r_b, 2)
+        )
 
     def tau_s(self):
         """
@@ -204,7 +225,7 @@ class Cavity:
             - round(eta_2T) otherwise
         """
         assert eta_2T > 0, "eta_2T must be positive"
-        return int(np.round(1.0/eta_2T) if eta_2T < 1. else 1)
+        return int(np.round(1.0 / eta_2T) if eta_2T < 1.0 else 1)
 
     def round_for_inverse_curve(self, eta_2T):
         """
@@ -246,7 +267,7 @@ class Cavity:
     def estimate_f_calc(self, f_calc_desired):
         """
         Simulator case algorithm from cavity.simulation() in oreonspy 3.2.3.
-        
+
         Parameters
         ----------
         f_calc_desired -- the desired sampling frequency
@@ -269,7 +290,7 @@ class Cavity:
 
         _N_eff_factor = 2
 
-        eta_2T = f_2T/(f_calc_desired)
+        eta_2T = f_2T / (f_calc_desired)
 
         if f_calc_desired > f_2T:
             n_of_subhistories = self.number_of_subhistories(eta_2T)
@@ -278,12 +299,14 @@ class Cavity:
             N_max = _N_eff_factor * self.N_eff()
             if f_calc_desired < (f_2T / N_max):
                 N = N_max
-                f_calc = f_calc_desired  # In this case desired f_calc is exactly simulated.
+                f_calc = (
+                    f_calc_desired  # In this case desired f_calc is exactly simulated.
+                )
                 partial_Theta = True
                 Theta_fraction = 1.0 - (N * f_calc * 2.0 * self.params.T)
             else:
                 N = self.round_for_inverse_curve(eta_2T)[0]
-                f_calc = f_2T/N  # in Hz
+                f_calc = f_2T / N  # in Hz
 
         Theta = 1.0 / f_calc  # in Seconds
 
@@ -291,30 +314,31 @@ class Cavity:
         logger.debug("Number of subhistories: {0}".format(n_of_subhistories))
         logger.debug("Theta: {0}".format(Theta))
         logger.debug("Final f_calc: {0}".format(f_calc))
-                
+
         return f_calc, N, Theta, partial_Theta, Theta_fraction, n_of_subhistories
 
     def simulation(self, k, desired_f_calc, E_in_init, backend="auto"):
-        '''
+        """
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
         k: wave number
         f_calc: calculation frequency
         E_in_init: initial electric field amplitude
         backend: "pure" | "numba" | "auto"
-        '''
+        """
         logger.debug("Simulation started")
         logger.debug("k: {0}".format(k))
         logger.debug("Desired f_calc: {0}".format(desired_f_calc))
         logger.debug("E_in_init: {0}".format(E_in_init))
 
-
         # Initial values
         k2j = -2.0j * k  # Used frequently in step()
 
         # Estimate f_calc, N, N_pre, Theta, partial_Theta, number_of_2T_chains
-        f_calc, N, Theta, partial_Theta, Theta_fraction, number_of_2T_chains = self.estimate_f_calc(desired_f_calc)
+        f_calc, N, Theta, partial_Theta, Theta_fraction, number_of_2T_chains = (
+            self.estimate_f_calc(desired_f_calc)
+        )
 
-        f_calc_accuracy = 1. - np.abs(f_calc - desired_f_calc) / desired_f_calc
+        f_calc_accuracy = 1.0 - np.abs(f_calc - desired_f_calc) / desired_f_calc
 
         self.sim_params = SimulationParams(
             k=k,
@@ -330,7 +354,7 @@ class Cavity:
             f_calc_accuracy=f_calc_accuracy,
         )
 
-        #self._sync_sim_param_aliases()
+        # self._sync_sim_param_aliases()
 
         # Arrays initialization
         self.n = np.arange(0, self.sim_params.N + 1, 1)
@@ -359,22 +383,33 @@ class Cavity:
             ax1.tick_params(axis="y", labelcolor="blue")
 
             # Plot self.e2iknL magnitude
-            #ax1.plot(self.n, np.abs(self.e2iknL), label="|$\exp(-2iknL)$|", color="green")  # Always 1
-            #ax1.plot(self.n, np.abs(self.rarbne2iknL), label="|$(r_a r_b)^n \cdot \exp(-2iknL)$|", color="red")  # Equal to self.rarbn
+            # ax1.plot(self.n, np.abs(self.e2iknL), label="|$\exp(-2iknL)$|", color="green")  # Always 1
+            # ax1.plot(self.n, np.abs(self.rarbne2iknL), label="|$(r_a r_b)^n \cdot \exp(-2iknL)$|", color="red")  # Equal to self.rarbn
 
             # Create a secondary y-axis for the phase
             ax2 = ax1.twinx()
-            ax2.plot(self.n, np.unwrap(np.angle(self.e2iknL)), label=r"Phase of $\exp(-2iknL)$", color="orange", linestyle="--", marker='o')
+            ax2.plot(
+                self.n,
+                np.unwrap(np.angle(self.e2iknL)),
+                label=r"Phase of $\exp(-2iknL)$",
+                color="orange",
+                linestyle="--",
+                marker="o",
+            )
             ax2.set_ylabel("Phase [rad]", color="black")
             ax2.tick_params(axis="y", labelcolor="black")
 
             # Add legends
-            fig.legend(loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
-            plt.title(r"Decay and Phase of $(r_a r_b)^n$, $\exp(-2iknL)$, and $(r_a r_b)^n \cdot \exp(-2iknL)$")
+            fig.legend(
+                loc="upper right", bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes
+            )
+            plt.title(
+                r"Decay and Phase of $(r_a r_b)^n$, $\exp(-2iknL)$, and $(r_a r_b)^n \cdot \exp(-2iknL)$"
+            )
             plt.show()
 
-        self.frac,_ = np.modf(self.params.__L__*self.sim_params.k/(2.*np.pi))
-        self.phi = 2.*np.pi*self.frac
+        self.frac, _ = np.modf(self.params.__L__ * self.sim_params.k / (2.0 * np.pi))
+        self.phi = 2.0 * np.pi * self.frac
         logger.debug("phi: {0}".format(self.phi))
 
         self.airy_phi = self.E_adiabatic(E_in_init, self.phi)
@@ -382,18 +417,27 @@ class Cavity:
         logger.debug("E_adiabatic abs : {0}".format(np.abs(self.airy_phi)))
         logger.debug("E_adiabatic angl: {0}".format(np.angle(self.airy_phi)))
 
-        self.E_last = self.airy_phi*np.ones(self.sim_params.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.sim_params.E_in_init))
+        self.E_last = (
+            self.airy_phi
+            * np.ones(self.sim_params.number_of_2T_chains, dtype=np.complex128)
+            * np.exp(1.0j * np.angle(self.sim_params.E_in_init))
+        )
 
         # Define a list of deque buffers for the electric field
-        self.E_in_buffers = [self.sim_params.E_in_init*np.ones(self.sim_params.N, dtype=np.complex128) for _ in range(self.sim_params.number_of_2T_chains)]
+        self.E_in_buffers = [
+            self.sim_params.E_in_init * np.ones(self.sim_params.N, dtype=np.complex128)
+            for _ in range(self.sim_params.number_of_2T_chains)
+        ]
         logger.debug("E_last cplx: {0}".format(self.E_last))
         logger.debug("E_last abs : {0}".format(np.abs(self.E_last)))
         logger.debug("E_last angl: {0}".format(np.angle(self.E_last)))
 
         self.Ze = np.zeros(self.sim_params.N + 2, dtype=np.float64)
         self.Z_last = np.zeros(self.sim_params.number_of_2T_chains, dtype=np.float64)
-        self.d_zeta_last = np.zeros(self.sim_params.number_of_2T_chains, dtype=np.float64)
-        self.Ze_in = 0.
+        self.d_zeta_last = np.zeros(
+            self.sim_params.number_of_2T_chains, dtype=np.float64
+        )
+        self.Ze_in = 0.0
 
         self.E_in = np.zeros(self.sim_params.N, dtype=np.complex128)
 
@@ -419,44 +463,59 @@ class Cavity:
                 heavy = _pure_heavy
 
         else:
-            raise ValueError(f"Unknown backend {backend!r}. "
-                                "Use 'pure', 'numba' or 'auto'.")
+            raise ValueError(
+                f"Unknown backend {backend!r}. " "Use 'pure', 'numba' or 'auto'."
+            )
 
         self.simulation_initialized = True
-    
-    def __sim_step__(self, d_zeta=0., E_in_curr=1.):
-        '''
+
+    def __sim_step__(self, d_zeta=0.0, E_in_curr=1.0):
+        """
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
 
         d_zeta: displacement of the output mirror
         E_in_curr: current electric input field
-        '''
-        
+        """
+
         if self.simulation_initialized == False:
             print("Initialize first")
             return
 
         chain_idx = self.__sim_step_counter__ % self.sim_params.number_of_2T_chains
-        #logger.debug("Chain idx: {0}".format(chain_idx))
+        # logger.debug("Chain idx: {0}".format(chain_idx))
 
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = d_zeta
 
-        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(d_zeta, E_in_curr, self.d_zeta_last, self.Z_last[chain_idx], self.sim_params.partial_Theta, self.sim_params.Theta_fraction, self.sim_params.N, self.Ze, self.E_in_buffers[chain_idx], self.rarbne2iknL, self.sim_params.k2j, self.params.t_a, self.E_last[chain_idx])
+        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(
+            d_zeta,
+            E_in_curr,
+            self.d_zeta_last,
+            self.Z_last[chain_idx],
+            self.sim_params.partial_Theta,
+            self.sim_params.Theta_fraction,
+            self.sim_params.N,
+            self.Ze,
+            self.E_in_buffers[chain_idx],
+            self.rarbne2iknL,
+            self.sim_params.k2j,
+            self.params.t_a,
+            self.E_last[chain_idx],
+        )
 
-        #if not self.partial_Theta:
+        # if not self.partial_Theta:
         self.E_last[chain_idx] = E
 
-        #logger.debug("E_last: {0}".format(self.E_last))
+        # logger.debug("E_last: {0}".format(self.E_last))
 
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
         return E
-        
-    def sim_step(self, E_in_laser=1., d_zeta_in=0., d_zeta=0.):
-        '''
+
+    def sim_step(self, E_in_laser=1.0, d_zeta_in=0.0, d_zeta=0.0):
+        """
         Simulate the electric field propagation through a two-mirror cavity.
-        This method calculates the electric field after propagating through a 
+        This method calculates the electric field after propagating through a
         two-mirror cavity with given initial electric field and mirror displacements.
 
         Parameters:
@@ -480,7 +539,7 @@ class Cavity:
         ------
         - `self.k` is the wave number.
         - `self.Ze_in` is the sum of previous mirror displacements.
-        '''
+        """
 
         # Total cavity length
         d_zeta_tot = d_zeta - d_zeta_in
@@ -489,23 +548,30 @@ class Cavity:
         self.Ze_in += d_zeta_in
 
         # Electric field on the input mirror
-        E_in_laser = E_in_laser * np.exp(self.sim_params.k2j*self.Ze_in)
+        E_in_laser = E_in_laser * np.exp(self.sim_params.k2j * self.Ze_in)
 
         E = self.__sim_step__(d_zeta=d_zeta_tot, E_in_curr=E_in_laser)
 
         E_ref_val = self.E_ref(E=E, E_in_laser=E_in_laser, Ze_in=self.Ze_in)
 
         return E, E_ref_val
-    
+
     def sim_reset(self):
-        self.E_last = self.airy_phi*np.ones(self.sim_params.number_of_2T_chains, dtype=np.complex128)*np.exp(1.j*np.angle(self.sim_params.E_in_init))
-        self.E_in_buffers = [self.sim_params.E_in_init*np.ones(self.sim_params.N, dtype=np.complex128) for _ in range(self.sim_params.number_of_2T_chains)]
+        self.E_last = (
+            self.airy_phi
+            * np.ones(self.sim_params.number_of_2T_chains, dtype=np.complex128)
+            * np.exp(1.0j * np.angle(self.sim_params.E_in_init))
+        )
+        self.E_in_buffers = [
+            self.sim_params.E_in_init * np.ones(self.sim_params.N, dtype=np.complex128)
+            for _ in range(self.sim_params.number_of_2T_chains)
+        ]
         self.Z_last = np.zeros(self.sim_params.number_of_2T_chains)
         self.Ze = np.zeros(self.sim_params.N + 2)
-        self.Ze_in = 0.
+        self.Ze_in = 0.0
         self.d_zeta_last = np.zeros(self.sim_params.number_of_2T_chains)
         self.__sim_step_counter__ = 0
-        
+
     def print_sim_params(self):
         for field_name, field_value in self.sim_params.__dict__.items():
             print(f"{field_name}: {field_value}")
@@ -523,13 +589,13 @@ class Cavity:
         plt.legend()
 
     def Airy(self, phi):
-        return 1. / (1. + self.F() * np.sin(phi)**2)
-    
+        return 1.0 / (1.0 + self.F() * np.sin(phi) ** 2)
+
     def E_adiabatic(self, E_in, phi):
         r"""
         Calculate the adiabatic electric field inside the cavity based on the input electric field.
 
-        This method uses the formula from Rakhmanov Eq. 1.72 to compute the adiabatic 
+        This method uses the formula from Rakhmanov Eq. 1.72 to compute the adiabatic
         electric field.
 
         Parameters:
@@ -551,13 +617,17 @@ class Cavity:
         - `self.r_a` and `self.r_b` are parameters related to the reflection coefficients.
         - The formula involves the absolute value and angle of the input electric field.
         """
-        '''
+        """
          (Rakhmanov Eq. 1.72)
-        '''
-        return self.params.t_a*np.abs(E_in)/(1.-self.params.r_a*self.params.r_b*np.exp(-2.j*phi))
-    
+        """
+        return (
+            self.params.t_a
+            * np.abs(E_in)
+            / (1.0 - self.params.r_a * self.params.r_b * np.exp(-2.0j * phi))
+        )
+
     def xml_save(self, filename):
-        '''
+        """
         The method saves the following parameters of the Cavity object if they exist: r_a, r_b, t_a, __L__, T.
 
         Parameters:
@@ -570,7 +640,7 @@ class Cavity:
         cavity.xml_save("cavity_parameters.xml")
 
         This will create an XML file named "cavity_parameters.xml" with the parameters of the Cavity object.
-        '''
+        """
         root = ET.Element("Cavity")
 
         # Parameters to save from the CavityParams dataclass
@@ -597,7 +667,7 @@ class Cavity:
             logger.error(f"Error writing the XML file: {e}")
 
     def xml_load(self, filename=None):
-        '''
+        """
         Load cavity parameters from an XML file.
 
         This method supports two call styles:
@@ -608,11 +678,13 @@ class Cavity:
 
         2) Class style (creates and returns a loaded object):
            cavity = Cavity.xml_load('path/to/parameters.xml')
-        '''
+        """
         if isinstance(self, Cavity):
             cavity_obj = self
             if filename is None:
-                raise TypeError("Cavity.xml_load() missing 1 required positional argument: 'filename'")
+                raise TypeError(
+                    "Cavity.xml_load() missing 1 required positional argument: 'filename'"
+                )
             xml_filename = filename
         else:
             # Allow class-style call Cavity.xml_load('file.xml') by interpreting
@@ -640,10 +712,16 @@ class Cavity:
             params[param.tag] = float(param.text)
 
         # Reinitialize the Cavity object with the loaded parameters
-        cavity_obj.__init__(t_a=params['t_a'], r_a=params['r_a'], r_b=params['r_b'], L=params['__L__'], debug=cavity_obj.debug)
+        cavity_obj.__init__(
+            t_a=params["t_a"],
+            r_a=params["r_a"],
+            r_b=params["r_b"],
+            L=params["__L__"],
+            debug=cavity_obj.debug,
+        )
         return cavity_obj
-    
-    def E_ref(self, E, E_in_laser=1., Ze_in=0.):
+
+    def E_ref(self, E, E_in_laser=1.0, Ze_in=0.0):
         """
         TODO: verify what is the phase parameter
         Calculate the reflected electric field (E_ref) based on the input electric field (E) and the input laser electric field (E_in_laser).
@@ -661,14 +739,21 @@ class Cavity:
         where:
         - self.r_a and self.t_a are predefined reflection and transmission coefficients, respectively.
         """
-        return np.exp(self.sim_params.k2j*Ze_in) * ((self.params.r_a**2 + self.params.t_a**2) * E_in_laser - self.params.t_a * E) / self.params.r_a
+        return (
+            np.exp(self.sim_params.k2j * Ze_in)
+            * (
+                (self.params.r_a**2 + self.params.t_a**2) * E_in_laser
+                - self.params.t_a * E
+            )
+            / self.params.r_a
+        )
 
     def close(self):
-        '''
+        """
         Close the file handler if it exists and remove it from the logger.
         This method assures correct writing to disctinct logs.
-        '''
-        if hasattr(self, 'file_handler') and self.file_handler:
+        """
+        if hasattr(self, "file_handler") and self.file_handler:
             self.file_handler.close()
             logger.removeHandler(self.file_handler)
 
@@ -679,26 +764,27 @@ class TestCavity(Cavity):
 
 
 class ArmCavity(Cavity):
-    '''
+    """
     TODO: Confirm parameters reproducing PDH signal of the arm cavity.
 
     Finesse 450-460  # "The advanced Virgo longitudinal control system for the O2 observing run" s2.0-S0927650519301835
-    '''
+    """
+
     def __init__(self, debug=None):
-        MassThickness = 0.2                   # m
-        SubstrateAbsorption = 0.3e-4          # 1/m; bulk absorption coef
+        MassThickness = 0.2  # m
+        SubstrateAbsorption = 0.3e-4  # 1/m; bulk absorption coef
         MirrorSubstrateAbsorption = SubstrateAbsorption * MassThickness
 
         t_a = 0.014
         T_a = t_a**2
-        R_a = 1. - MirrorSubstrateAbsorption**2 - T_a
+        R_a = 1.0 - MirrorSubstrateAbsorption**2 - T_a
 
         t_b = 5e-6
         T_b = t_b**2
         R_b = 0.99325
 
-        lambd = 1064.e-9
-        #L = np.ceil(3000.0/lambd)*lambd - 0.05*lambd
+        lambd = 1064.0e-9
+        # L = np.ceil(3000.0/lambd)*lambd - 0.05*lambd
         L = 3000.0
 
         # Values from Andrea's thesis
@@ -706,21 +792,22 @@ class ArmCavity(Cavity):
 
 
 class FilterCavity(Cavity):
-    '''
+    """
     Finesse 9582-10204  # "Thermal detuning of a bichromatic narrow linewidth optical cavity" L.D. BONAVENA
     t_a = 0.000562
     t_b = 0.00000316  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
     r_a = np.sqrt(1. - t_a**2)-0.00016
     r_b = np.sqrt(1. - t_b**2)-0.00016
     L = 284.9  # m
-    '''
+    """
+
     def __init__(self, debug=None):
         t_a = 0.000562
         T_a = t_a**2
         t_b = 0.00000316  # Thermal detuning of a bichromatic narrow linewidth optical cavity L.D. BONAVENA
         T_b = t_b**2
-        R_a = 1. - T_a - 0.00016
-        R_b = 1. - T_b - 0.00016
+        R_a = 1.0 - T_a - 0.00016
+        R_b = 1.0 - T_b - 0.00016
         L = 284.9  # m
 
         Cavity.__init__(self, T_a=T_a, R_a=R_a, R_b=R_b, L=L, debug=debug)
