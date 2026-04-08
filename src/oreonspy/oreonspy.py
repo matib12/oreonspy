@@ -317,18 +317,22 @@ class Cavity:
 
         return f_calc, N, Theta, partial_Theta, Theta_fraction, n_of_subhistories
 
-    def simulation(self, k, desired_f_calc, E_in_init, backend="auto"):
+    def simulation(
+        self, k, desired_f_calc, initial_input_electric_field, backend="auto"
+    ):
         """
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
         k: wave number
         f_calc: calculation frequency
-        E_in_init: initial electric field amplitude
+        initial_input_electric_field: initial electric field amplitude
         backend: "pure" | "numba" | "auto"
         """
         logger.debug("Simulation started")
         logger.debug("k: {0}".format(k))
         logger.debug("Desired f_calc: {0}".format(desired_f_calc))
-        logger.debug("E_in_init: {0}".format(E_in_init))
+        logger.debug(
+            "Initial input electric field: {0}".format(initial_input_electric_field)
+        )
 
         # Initial values
         k2j = -2.0j * k  # Used frequently in step()
@@ -344,7 +348,7 @@ class Cavity:
             k=k,
             k2j=k2j,
             desired_f_calc=desired_f_calc,
-            E_in_init=E_in_init,
+            initial_input_electric_field=initial_input_electric_field,
             f_calc=f_calc,
             N=N,
             Theta=Theta,
@@ -412,7 +416,9 @@ class Cavity:
         self.phi = 2.0 * np.pi * self.frac
         logger.debug("phi: {0}".format(self.phi))
 
-        self.airy_phi = self.E_adiabatic(E_in_init, self.phi)
+        self.airy_phi = self.E_adiabatic(
+            self.sim_params.initial_input_electric_field, self.phi
+        )
         logger.debug("E_adiabatic cplx: {0}".format(self.airy_phi))
         logger.debug("E_adiabatic abs : {0}".format(np.abs(self.airy_phi)))
         logger.debug("E_adiabatic angl: {0}".format(np.angle(self.airy_phi)))
@@ -420,12 +426,13 @@ class Cavity:
         self.E_last = (
             self.airy_phi
             * np.ones(self.sim_params.number_of_2T_chains, dtype=np.complex128)
-            * np.exp(1.0j * np.angle(self.sim_params.E_in_init))
+            * np.exp(1.0j * np.angle(self.sim_params.initial_input_electric_field))
         )
 
         # Define a list of deque buffers for the electric field
         self.E_in_buffers = [
-            self.sim_params.E_in_init * np.ones(self.sim_params.N, dtype=np.complex128)
+            self.sim_params.initial_input_electric_field
+            * np.ones(self.sim_params.N, dtype=np.complex128)
             for _ in range(self.sim_params.number_of_2T_chains)
         ]
         logger.debug("E_last cplx: {0}".format(self.E_last))
@@ -469,7 +476,7 @@ class Cavity:
 
         self.simulation_initialized = True
 
-    def __sim_step__(self, d_zeta=0.0, input_electric_field_amplitude=1.0):
+    def __sim_step__(self, output_mirror_displacement=0.0, input_electric_field=1.0):
         """
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
 
@@ -485,11 +492,11 @@ class Cavity:
         # logger.debug("Chain idx: {0}".format(chain_idx))
 
         # Update the displacement of the output mirror
-        self.d_zeta_last[chain_idx] = d_zeta
+        self.d_zeta_last[chain_idx] = output_mirror_displacement
 
         self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(
-            d_zeta,
-            input_electric_field_amplitude,
+            output_mirror_displacement,
+            input_electric_field,
             self.d_zeta_last,
             self.Z_last[chain_idx],
             self.sim_params.partial_Theta,
@@ -512,7 +519,12 @@ class Cavity:
 
         return E
 
-    def sim_step(self, input_electric_field=1.0, input_mirror_displacement=0.0, output_mirror_displacement=0.0):
+    def sim_step(
+        self,
+        input_electric_field=1.0,
+        input_mirror_displacement=0.0,
+        output_mirror_displacement=0.0,
+    ):
         """
         Simulate the electric field propagation through a two-mirror cavity.
         This method calculates the electric field after propagating through a
@@ -530,7 +542,7 @@ class Cavity:
         Returns:
         --------
         tuple:
-            - E : complex
+            - electric_field_inside_cavity : complex
             The electric field inside the cavity after propagation.
             - reflected_electric_field : complex
             The reflected electric field from the cavity.
@@ -548,11 +560,20 @@ class Cavity:
         self.total_input_mirror_displacement += input_mirror_displacement
 
         # Electric field on the input mirror
-        input_electric_field = input_electric_field * np.exp(self.sim_params.k2j * self.total_input_mirror_displacement)
+        phaseshifted_input_electric_field = input_electric_field * np.exp(
+            self.sim_params.k2j * self.total_input_mirror_displacement
+        )
 
-        electric_field_inside_cavity = self.__sim_step__(d_zeta=cavity_length_variation, input_electric_field_amplitude=input_electric_field)
+        electric_field_inside_cavity = self.__sim_step__(
+            output_mirror_displacement=cavity_length_variation,
+            input_electric_field=phaseshifted_input_electric_field,
+        )
 
-        reflected_electric_field = self.compute_reflected_field(E=electric_field_inside_cavity, E_in_laser=input_electric_field, Ze_in=self.total_input_mirror_displacement)
+        reflected_electric_field = self.compute_reflected_field(
+            E=electric_field_inside_cavity,
+            E_in_laser=phaseshifted_input_electric_field,
+            Ze_in=self.total_input_mirror_displacement,
+        )
 
         return electric_field_inside_cavity, reflected_electric_field
 
