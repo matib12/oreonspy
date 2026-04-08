@@ -87,7 +87,7 @@ def V_pdh(gamma, E_in, E):
 
 
 # Additional functions for the testing
-def generate_time_points_for_constant_velocity(velocity, f_calc, number_of_FSR=2.):
+def generate_time_points_for_constant_velocity(velocity, f_calc, lambd = lambd, number_of_FSR=2.):
     """
     Calculate the time window and the number of points for a given velocity and calculation frequency.
 
@@ -111,7 +111,7 @@ def Omega(t, v, cavity):
     # 2.70 
     return -k*v*t/cavity.params.T
 
-def optimal_sampling_frequency(cavity, critical_velocity_factor):
+def optimal_sampling_frequency(cavity, critical_velocity_factor, lambd = lambd):
     """
     Calculate the optimal sampling frequency for a given velocity and number of Free Spectral Ranges.
 
@@ -129,22 +129,22 @@ def optimal_sampling_frequency(cavity, critical_velocity_factor):
     return oscillation_freq
 
 
-def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons=None, s_ref=None, ph_ref=None, title=None, save=False):
+def plot_cavity_evolution(output_mirror_displacements, E_in_values, power, ph, pdh, input_mirror_displacements=None, power_ref=None, ph_ref=None, file_name=None, save=False):
     if save == True:
         plt.ioff()  # Disable interactive mode for correct memory management in iPython
     else:
         plt.ion()
 
-    n_of_sublots = 5 if s_ref is not None or ph_ref is not None else 4
+    n_of_sublots = 5 if power_ref is not None or ph_ref is not None else 4
     
     fig, ax = plt.subplots(n_of_sublots, 1, figsize=(10, 10))
     fig.tight_layout()
 
     plot_idx = 0
-    ax[0].plot(s, label="Cav mag")
+    ax[0].plot(power, label="Cav mag")
     ax[0].grid()
     ax[0].set_ylabel("magn")
-    ax[0].title.set_text("Electric field inside the cavity (m1 ref frame)")
+    ax[0].title.set_text("Optical power inside the cavity")
     ax2 = ax[0].twinx()
     ax2.plot(np.unwrap(ph), label="Cav ph", color='tab:orange')
     ax2.set_ylabel("ph")
@@ -157,8 +157,8 @@ def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons
     ax[1].title.set_text("PDH signal")
     plot_idx += 1
 
-    if s_ref is not None:
-        ax[plot_idx].plot(s_ref, label="Refl mag", color='darkblue')
+    if power_ref is not None:
+        ax[plot_idx].plot(power_ref, label="Refl mag", color='darkblue')
         ax[plot_idx].set_ylabel("magn")
         ax[plot_idx].grid()
         ax[plot_idx].title.set_text("Reflected electric field")
@@ -169,9 +169,9 @@ def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons
             ax3.tick_params(axis='y')
         plot_idx += 1
 
-    if zeta1_positons is not None:
-        ax[plot_idx].plot(zeta1_positons, label="m2 pos", c='lightgreen')
-    ax[plot_idx].plot(zeta_positons, label="m1 pos", ls='dashed', c='darkgreen')
+    if input_mirror_displacements is not None:
+        ax[plot_idx].plot(input_mirror_displacements, label="m2 pos", c='lightgreen')
+    ax[plot_idx].plot(output_mirror_displacements, label="m1 pos", ls='dashed', c='darkgreen')
     ax[plot_idx].set_ylabel("positions")
     ax[plot_idx].grid()
     ax[plot_idx].title.set_text("Mirror")
@@ -197,7 +197,7 @@ def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons
     h, l = ax2.get_legend_handles_labels()
     han += h
     lab += l
-    if s_ref is not None:
+    if power_ref is not None:
         h, l = ax3.get_legend_handles_labels()
         han += h
         lab += l
@@ -212,11 +212,11 @@ def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons
 
     if save:
         # Save the figure
-        if title is None:
-            title = "cavity_evolution"
+        if file_name is None:
+            file_name = "cavity_evolution"
         else:
-            title = title.replace(" ", "_")
-        fig.savefig("../optical_cavities_testset/"+title+".png", dpi=300, bbox_inches='tight')
+            file_name = file_name.replace(" ", "_")
+        fig.savefig("./"+file_name+".png", dpi=300, bbox_inches='tight')
         
         plt.cla()
         plt.close(fig)
