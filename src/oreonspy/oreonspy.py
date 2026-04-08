@@ -52,7 +52,7 @@ class SimulationParams:
     k: Optional[float] = None
     k2j: Optional[complex] = None
     desired_f_calc: Optional[float] = None
-    E_in_init: Optional[complex] = None
+    initial_input_electric_field: Optional[complex] = None
     f_calc: Optional[float] = None
     N: Optional[int] = None
     Theta: Optional[float] = None
@@ -423,7 +423,7 @@ class Cavity:
         logger.debug("E_adiabatic abs : {0}".format(np.abs(self.airy_phi)))
         logger.debug("E_adiabatic angl: {0}".format(np.angle(self.airy_phi)))
 
-        self.E_last = (
+        self.last_intracavity_electric_field_all_subhist = (
             self.airy_phi
             * np.ones(self.sim_params.number_of_2T_chains, dtype=np.complex128)
             * np.exp(1.0j * np.angle(self.sim_params.initial_input_electric_field))
@@ -435,11 +435,11 @@ class Cavity:
             * np.ones(self.sim_params.N, dtype=np.complex128)
             for _ in range(self.sim_params.number_of_2T_chains)
         ]
-        logger.debug("E_last cplx: {0}".format(self.E_last))
-        logger.debug("E_last abs : {0}".format(np.abs(self.E_last)))
-        logger.debug("E_last angl: {0}".format(np.angle(self.E_last)))
+        logger.debug("E_last cplx: {0}".format(self.last_intracavity_electric_field_all_subhist))
+        logger.debug("E_last abs : {0}".format(np.abs(self.last_intracavity_electric_field_all_subhist)))
+        logger.debug("E_last angl: {0}".format(np.angle(self.last_intracavity_electric_field_all_subhist)))
 
-        self.Ze = np.zeros(self.sim_params.N + 2, dtype=np.float64)
+#        self.Ze = np.zeros(self.sim_params.N + 2, dtype=np.float64)
         self.Z_last = np.zeros(self.sim_params.number_of_2T_chains, dtype=np.float64)
         self.d_zeta_last = np.zeros(
             self.sim_params.number_of_2T_chains, dtype=np.float64
@@ -494,7 +494,7 @@ class Cavity:
         # Update the displacement of the output mirror
         self.d_zeta_last[chain_idx] = output_mirror_displacement
 
-        self.Ze, self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(
+        self.E_in_buffers[chain_idx], E, self.Z_last[chain_idx] = heavy(
             output_mirror_displacement,
             input_electric_field,
             self.d_zeta_last,
@@ -502,18 +502,18 @@ class Cavity:
             self.sim_params.partial_Theta,
             self.sim_params.Theta_fraction,
             self.sim_params.N,
-            self.Ze,
+#            self.Ze,
             self.E_in_buffers[chain_idx],
             self.rarbne2iknL,
             self.sim_params.k2j,
             self.params.t_a,
-            self.E_last[chain_idx],
+            self.last_intracavity_electric_field_all_subhist[chain_idx],
         )
 
         # if not self.partial_Theta:
-        self.E_last[chain_idx] = E
+        self.last_intracavity_electric_field_all_subhist[chain_idx] = E
 
-        # logger.debug("E_last: {0}".format(self.E_last))
+        # logger.debug("E_last: {0}".format(self.last_intracavity_electric_field_all_subhist))
 
         self.__sim_step_counter__ += 1  # Be carefull with the overflow!!!
 
@@ -564,21 +564,21 @@ class Cavity:
             self.sim_params.k2j * self.total_input_mirror_displacement
         )
 
-        electric_field_inside_cavity = self.__sim_step__(
+        intracavity_electric_field = self.__sim_step__(
             output_mirror_displacement=cavity_length_variation,
             input_electric_field=phaseshifted_input_electric_field,
         )
 
         reflected_electric_field = self.compute_reflected_field(
-            E=electric_field_inside_cavity,
+            E=intracavity_electric_field,
             E_in_laser=phaseshifted_input_electric_field,
             Ze_in=self.total_input_mirror_displacement,
         )
 
-        return electric_field_inside_cavity, reflected_electric_field
+        return intracavity_electric_field, reflected_electric_field
 
     def sim_reset(self):
-        self.E_last = (
+        self.last_intracavity_electric_field_all_subhist = (
             self.airy_phi
             * np.ones(self.sim_params.number_of_2T_chains, dtype=np.complex128)
             * np.exp(1.0j * np.angle(self.sim_params.E_in_init))
@@ -588,7 +588,7 @@ class Cavity:
             for _ in range(self.sim_params.number_of_2T_chains)
         ]
         self.Z_last = np.zeros(self.sim_params.number_of_2T_chains)
-        self.Ze = np.zeros(self.sim_params.N + 2)
+#        self.Ze = np.zeros(self.sim_params.N + 2)
         self.total_input_mirror_displacement = 0.0
         self.d_zeta_last = np.zeros(self.sim_params.number_of_2T_chains)
         self.__sim_step_counter__ = 0
