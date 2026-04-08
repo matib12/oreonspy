@@ -10,7 +10,6 @@ def heavy(
     partial_Theta,
     Theta_fraction,
     num_roundtrips,  # N
-#    Ze,
     input_electric_field_history,  # E_in_history
     rarbne2iknL,
     k2j,
@@ -32,8 +31,7 @@ def heavy(
     output_mirror_position_grid[1:] = np.linspace(
         total_output_mirror_displacement,
         last_total_output_mirror_displacement,
-        num=num_roundtrips + 1,
-        dtype=np.float64,
+        num=num_roundtrips + 1
     )
     # logger.debug(output_mirror_position_grid)
 
@@ -63,7 +61,6 @@ def heavy(
     )
 
     return (
-#        Ze,
         input_electric_field_history,
         intracavity_electric_field,
         total_output_mirror_displacement,

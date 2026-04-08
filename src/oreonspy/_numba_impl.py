@@ -15,7 +15,7 @@ def numba_add_accumulate(A):
 
 @staticmethod
 @njit(
-    types.Tuple((float64[:], complex128[:], complex128, float64))(
+    types.Tuple((complex128[:], complex128, float64))(
         float64,
         complex128,
         float64[:],
@@ -27,7 +27,7 @@ def numba_add_accumulate(A):
         complex128[:],
         complex128,
         float64,
-        complex128,
+        complex128
     )
 )  # ,fastmath=True)  # Check if fastmath=True is correct
 def heavy(
@@ -38,7 +38,6 @@ def heavy(
     partial_Theta,
     Theta_fraction,
     num_roundtrips,
-    #    Ze,
     input_electric_field_history,
     rarbne2iknL,
     k2j,
@@ -60,8 +59,7 @@ def heavy(
     output_mirror_position_grid[1:] = np.linspace(
         total_output_mirror_displacement,
         last_total_output_mirror_displacement,
-        num=num_roundtrips + 1,
-        dtype=np.float64,
+        num=num_roundtrips + 1
     )
     # logger.debug(output_mirror_position_grid)
     output_mirror_position_grid = numba_add_accumulate(output_mirror_position_grid)
@@ -92,5 +90,5 @@ def heavy(
     return (
         input_electric_field_history,
         intracavity_electric_field,
-        total_output_mirror_displacement,
+        total_output_mirror_displacement
     )
