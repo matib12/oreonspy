@@ -1,6 +1,6 @@
 import numpy as np
 from numba import njit, types
-from numba import int64, float64, complex128, boolean  # import the types
+from numba import int64, float64, complex128, boolean
 
 
 @njit(float64[:](float64[:]))
@@ -29,7 +29,7 @@ def numba_add_accumulate(A):
         float64,
         complex128
     )
-)  # ,fastmath=True)  # Check if fastmath=True is correct
+)
 def heavy(
     output_mirror_displacement,
     input_electric_field,
@@ -61,9 +61,7 @@ def heavy(
         last_total_output_mirror_displacement,
         num=num_roundtrips + 1
     )
-    # logger.debug(output_mirror_position_grid)
     output_mirror_position_grid = numba_add_accumulate(output_mirror_position_grid)
-    # logger.debug("output_mirror_position_grid: {0}".format(output_mirror_position_grid))
 
     # Update input electric field buffer
     input_electric_field_history = np.roll(input_electric_field_history, 1)
@@ -72,7 +70,6 @@ def heavy(
     # Calculate the sum
     Sum = 0.0
     for idx in range(num_roundtrips):
-        # print("index: {0}".format(idx))
         Sum = (
             Sum
             + rarbne2iknL[idx]
