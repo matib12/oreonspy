@@ -138,14 +138,14 @@ def plot_cavity_evolution(output_mirror_displacements, input_electric_field, int
     reflected_field_phase = np.angle(reflected_field) if reflected_field is not None else None
     intracav_electric_field_phase = np.angle(intracav_electric_field) if intracav_electric_field is not None else None
     input_electric_field_phase = np.angle(input_electric_field) if input_electric_field is not None else None
-    power = np.abs(intracav_electric_field)**2
+    intracav_power = np.abs(intracav_electric_field)**2
 
     n_of_sublots = 5 if reflected_field is not None or reflected_field_phase is not None else 4
     fig, ax = plt.subplots(n_of_sublots, 1, figsize=(10, 10))
     fig.tight_layout()
     
     plot_idx = 0
-    ax[0].plot(power, label="Intracavity power")
+    ax[0].plot(intracav_power, label="Intracavity power")
     ax[0].grid()
     ax[0].set_ylabel("watt")
     ax[0].title.set_text("Optical power inside the cavity")
