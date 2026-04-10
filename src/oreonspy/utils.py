@@ -65,7 +65,7 @@ def critical_velocity(cavity=None, wavelength=lambd, Finesse=None, L=None):
     '''
     if cavity is not None:
         Finesse = cavity.Finesse()
-        L = cavity.params.__L__
+        L = cavity.params.cavity_length
     
     return wavelength / (2. * Finesse * L/c/ np.arcsinh(np.pi/(2.*Finesse)))  # [m/s]!
 
@@ -109,7 +109,7 @@ def generate_time_points_for_constant_velocity(velocity, f_calc, number_of_FSR=2
 
 def Omega(t, v, cavity):
     # 2.70 
-    return -k*v*t/cavity.params.T
+    return -k*v*t/cavity.params.half_roundtrip_time
 
 def optimal_sampling_frequency(cavity, critical_velocity_factor):
     """

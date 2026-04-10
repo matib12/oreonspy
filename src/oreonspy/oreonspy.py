@@ -53,7 +53,7 @@ class SimulationParams:
     k2j: Optional[complex] = None
     requested_sampling_frequency: Optional[float] = None
     initial_input_electric_field: Optional[complex] = None
-    f_calc: Optional[float] = None
+    sampling_frequency: Optional[float] = None
     num_roundtrips: Optional[int] = None
     Theta: Optional[float] = None
     partial_Theta: Optional[bool] = None
@@ -331,7 +331,7 @@ class Cavity:
             k2j=k2j,
             requested_sampling_frequency=requested_sampling_frequency,
             initial_input_electric_field=initial_input_electric_field,
-            f_calc=sampling_frequency,
+            sampling_frequency=sampling_frequency,
             num_roundtrips=N,
             Theta=Theta,
             partial_Theta=partial_Theta,
