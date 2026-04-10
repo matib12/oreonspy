@@ -299,7 +299,6 @@ class Cavity:
 
         return f_calc, N, Theta, partial_Theta, Theta_fraction, n_of_subhistories
 
-<<<<<<< src/oreonspy/oreonspy.py
     def simulation(
         self, lambd, requested_sampling_frequency, initial_input_electric_field, backend="auto"
     ):
