@@ -1,50 +1,91 @@
 import numpy as np
 from numba import njit, types
-from numba import int64, float64, complex128, boolean    # import the types
+from numba import int64, float64, complex128, boolean
+
 
 @njit(float64[:](float64[:]))
 def numba_add_accumulate(A):
     r = np.empty(len(A), dtype=np.float64)
-    t = 0.
+    t = 0.0
     for i in range(len(A)):
         t += A[i]
         r[i] = t
     return r
 
+
 @staticmethod
-@njit(types.Tuple((float64[:], complex128[:], complex128, float64))(float64, complex128, float64[:], float64, boolean, float64, int64, float64[:], complex128[:], complex128[:], complex128, float64, complex128)) #,fastmath=True)  # Check if fastmath=True is correct
-def heavy(d_zeta, E_in_curr, d_zeta_last, Z_last_chain_idx, partial_Theta, Theta_fraction, N, Ze, E_in_buffers_chain_idx, rarbne2iknL, k2j, t_a, E_last_chain_idx):
-    Z = np.sum(d_zeta_last) + Z_last_chain_idx
+@njit(
+    types.Tuple((complex128[:], complex128, float64))(
+        float64,
+        complex128,
+        float64[:],
+        float64,
+        boolean,
+        float64,
+        int64,
+        complex128[:],
+        complex128[:],
+        complex128,
+        float64,
+        complex128
+    )
+)
+def heavy(
+    output_mirror_displacement,
+    input_electric_field,
+    last_output_mirror_displacement_all_subhist,
+    last_total_output_mirror_displacement,
+    partial_Theta,
+    Theta_fraction,
+    num_roundtrips,
+    input_electric_field_history,
+    rarbne2iknL,
+    k2j,
+    t_a,
+    last_intracavity_electric_field,
+):
+    total_output_mirror_displacement = (
+        np.sum(last_output_mirror_displacement_all_subhist)
+        + last_total_output_mirror_displacement
+    )
 
-    #logger.debug("Z_last: {0}".format(self.Z_last))
-
-    Z_start = Z_last_chain_idx
     if partial_Theta:
-        Z_start += Theta_fraction * d_zeta
-        #logger.debug("Z_start: {0}".format(Z_start))
+        last_total_output_mirror_displacement += (
+            Theta_fraction * output_mirror_displacement
+        )
 
-    Ze[1:] = np.linspace(Z, Z_start, num=N + 1)
-    # logger.debug(self.Ze)
-    Ze = numba_add_accumulate(Ze)
-    #logger.debug("Ze: {0}".format(Ze))
+    output_mirror_position_grid = np.empty(num_roundtrips + 2, dtype=np.float64)
+    output_mirror_position_grid[0] = 0.0
+    output_mirror_position_grid[1:] = np.linspace(
+        total_output_mirror_displacement,
+        last_total_output_mirror_displacement,
+        num=num_roundtrips + 1
+    )
+    output_mirror_position_grid = numba_add_accumulate(output_mirror_position_grid)
 
     # Update input electric field buffer
-    E_in_buffers_chain_idx = np.roll(E_in_buffers_chain_idx, 1)
-    E_in_buffers_chain_idx[0] = E_in_curr
+    input_electric_field_history = np.roll(input_electric_field_history, 1)
+    input_electric_field_history[0] = input_electric_field
 
     # Calculate the sum
     Sum = 0.0
-    for idx in range(N):
-        # print("index: {0}".format(idx))
-        Sum = Sum + rarbne2iknL[idx] * np.exp(
-            k2j * Ze[idx]
-        ) * E_in_buffers_chain_idx[idx]
+    for idx in range(num_roundtrips):
+        Sum = (
+            Sum
+            + rarbne2iknL[idx]
+            * np.exp(k2j * output_mirror_position_grid[idx])
+            * input_electric_field_history[idx]
+        )
 
-    E = (
+    intracavity_electric_field = (
         t_a * Sum
-        + rarbne2iknL[N]
-        * np.exp(k2j * Ze[N])
-        * E_last_chain_idx
+        + rarbne2iknL[num_roundtrips]
+        * np.exp(k2j * output_mirror_position_grid[num_roundtrips])
+        * last_intracavity_electric_field
     )
 
-    return Ze, E_in_buffers_chain_idx, E, Z
+    return (
+        input_electric_field_history,
+        intracavity_electric_field,
+        total_output_mirror_displacement
+    )

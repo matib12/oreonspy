@@ -205,7 +205,7 @@ def test_pure_vs_numba_agree(scenario):
     print(f"Optimal sampling frequency: {f_opt:.3E} Hz")
 
     f_factor = params["freq"]
-    f_calc = cavity_pure.estimate_f_calc(ut.k, desired_f_calc=f_factor * f_opt)[0]
+    f_calc = cavity_pure.estimate_f_calc(f_calc_desired=f_factor * f_opt)[0]
 
     # Calculate critical velocity for later use
     critical_velocity = ut.critical_velocity(cavity_pure, ut.lambd)
@@ -253,7 +253,7 @@ def test_pure_vs_numba_agree(scenario):
 
     start = time.perf_counter()
     for i in range(tlen):
-        result_E_pure[i], result_E_ref_pure[i] = cavity_pure.sim_step(E_in_laser=1., d_zeta_in=0., d_zeta=z_steps[i])
+        result_E_pure[i], result_E_ref_pure[i] = cavity_pure.sim_step(input_electric_field=1., input_mirror_displacement=0., output_mirror_displacement=z_steps[i])
     end = time.perf_counter()
 
     pure_exec_time = end - start
@@ -286,7 +286,7 @@ def test_pure_vs_numba_agree(scenario):
 
         start = time.perf_counter()
         for i in range(tlen):
-            result_E_numba[i], result_E_ref_numba[i] = cavity_numba.sim_step(E_in_laser=1., d_zeta_in=0., d_zeta=z_steps[i])
+            result_E_numba[i], result_E_ref_numba[i] = cavity_numba.sim_step(input_electric_field=1., input_mirror_displacement=0., output_mirror_displacement=z_steps[i])
         end = time.perf_counter()
         numba_exec_time = end - start
         print(f"NUMBA backend simulation time: {numba_exec_time:.3f} seconds")
