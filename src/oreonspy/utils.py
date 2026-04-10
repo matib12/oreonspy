@@ -87,7 +87,7 @@ def V_pdh(gamma, E_in, E):
 
 
 # Additional functions for the testing
-def generate_time_points_for_constant_velocity(velocity, f_calc, number_of_FSR=2.):
+def generate_time_points_for_constant_velocity(velocity, f_calc, lambd = lambd, number_of_FSR=2.):
     """
     Calculate the time window and the number of points for a given velocity and calculation frequency.
 
@@ -111,7 +111,7 @@ def Omega(t, v, cavity):
     # 2.70 
     return -k*v*t/cavity.params.T
 
-def optimal_sampling_frequency(cavity, critical_velocity_factor):
+def optimal_sampling_frequency(cavity, critical_velocity_factor, lambd = lambd):
     """
     Calculate the optimal sampling frequency for a given velocity and number of Free Spectral Ranges.
 
@@ -129,61 +129,65 @@ def optimal_sampling_frequency(cavity, critical_velocity_factor):
     return oscillation_freq
 
 
-def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons=None, s_ref=None, ph_ref=None, title=None, save=False):
+def plot_cavity_evolution(output_mirror_displacements, input_electric_field, intracav_electric_field, pdh, input_mirror_displacements=None, reflected_field=None, file_name=None, save=False):
     if save == True:
         plt.ioff()  # Disable interactive mode for correct memory management in iPython
     else:
         plt.ion()
 
-    n_of_sublots = 5 if s_ref is not None or ph_ref is not None else 4
-    
+    reflected_field_phase = np.angle(reflected_field) if reflected_field is not None else None
+    intracav_electric_field_phase = np.angle(intracav_electric_field) if intracav_electric_field is not None else None
+    input_electric_field_phase = np.angle(input_electric_field) if input_electric_field is not None else None
+    power = np.abs(intracav_electric_field)**2
+
+    n_of_sublots = 5 if reflected_field is not None or reflected_field_phase is not None else 4
     fig, ax = plt.subplots(n_of_sublots, 1, figsize=(10, 10))
     fig.tight_layout()
-
+    
     plot_idx = 0
-    ax[0].plot(s, label="Cav mag")
+    ax[0].plot(power, label="Intracavity power")
     ax[0].grid()
-    ax[0].set_ylabel("magn")
-    ax[0].title.set_text("Electric field inside the cavity (m1 ref frame)")
+    ax[0].set_ylabel("watt")
+    ax[0].title.set_text("Optical power inside the cavity")
     ax2 = ax[0].twinx()
-    ax2.plot(np.unwrap(ph), label="Cav ph", color='tab:orange')
-    ax2.set_ylabel("ph")
+    ax2.plot(np.unwrap(intracav_electric_field_phase), label="Intracavity electric field phase", color='tab:orange')
+    ax2.set_ylabel("phase")
     ax2.tick_params(axis='y')
     plot_idx += 1
 
-    ax[1].plot(pdh, label="PDH", c="darkred")
+    ax[1].plot(pdh, label="Pound-Drever-Hall", c="darkred")
     ax[1].set_ylabel("PDH")
     ax[1].grid()
     ax[1].title.set_text("PDH signal")
     plot_idx += 1
 
-    if s_ref is not None:
-        ax[plot_idx].plot(s_ref, label="Refl mag", color='darkblue')
-        ax[plot_idx].set_ylabel("magn")
+    if reflected_field is not None:
+        ax[plot_idx].plot(np.abs(reflected_field)**2, label="Reflected power", color='darkblue')
+        ax[plot_idx].set_ylabel("watt")
         ax[plot_idx].grid()
-        ax[plot_idx].title.set_text("Reflected electric field")
+        ax[plot_idx].title.set_text("Reflected power")
         ax3 = ax[plot_idx].twinx()
-        if ph_ref is not None:
-            ax3.plot(np.unwrap(ph_ref), label="Refl ph", color='orange')
-            ax3.set_ylabel("ph")
+        if reflected_field_phase is not None:
+            ax3.plot(np.unwrap(reflected_field_phase), label="Reflected field phase", color='orange')
+            ax3.set_ylabel("phase")
             ax3.tick_params(axis='y')
         plot_idx += 1
 
-    if zeta1_positons is not None:
-        ax[plot_idx].plot(zeta1_positons, label="m2 pos", c='lightgreen')
-    ax[plot_idx].plot(zeta_positons, label="m1 pos", ls='dashed', c='darkgreen')
-    ax[plot_idx].set_ylabel("positions")
+    if input_mirror_displacements is not None:
+        ax[plot_idx].plot(input_mirror_displacements, label="m2 shift", c='lightgreen')
+    ax[plot_idx].plot(output_mirror_displacements, label="m1 shift", ls='dashed', c='darkgreen')
+    ax[plot_idx].set_ylabel("displacements")
     ax[plot_idx].grid()
     ax[plot_idx].title.set_text("Mirror")
     plot_idx += 1
 
-    ax[plot_idx].plot(np.abs(E_in_values)**2, label="Las mag", c='violet')
-    ax[plot_idx].set_ylabel("magn")
+    ax[plot_idx].plot(np.abs(input_electric_field), label="Input electric field magnitude", c='violet')
+    ax[plot_idx].set_ylabel("magnitude")
     ax[plot_idx].grid()
     ax[plot_idx].title.set_text("Input electric field")
     ax4 = ax[plot_idx].twinx()
-    ax4.plot(np.unwrap(np.angle(E_in_values)), label="Las ph", ls='dashed', c='magenta')
-    ax4.set_ylabel("ph")
+    ax4.plot(np.unwrap(input_electric_field_phase), label="Input electric field phase", ls='dashed', c='magenta')
+    ax4.set_ylabel("phase")
     ax4.tick_params(axis='y')
 
     # Prepare the legend
@@ -197,7 +201,7 @@ def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons
     h, l = ax2.get_legend_handles_labels()
     han += h
     lab += l
-    if s_ref is not None:
+    if reflected_field is not None:
         h, l = ax3.get_legend_handles_labels()
         han += h
         lab += l
@@ -212,11 +216,11 @@ def plot_cavity_evolution(zeta_positons, E_in_values, s, ph, pdh, zeta1_positons
 
     if save:
         # Save the figure
-        if title is None:
-            title = "cavity_evolution"
+        if file_name is None:
+            file_name = "cavity_evolution"
         else:
-            title = title.replace(" ", "_")
-        fig.savefig("../optical_cavities_testset/"+title+".png", dpi=300, bbox_inches='tight')
+            file_name = file_name.replace(" ", "_")
+        fig.savefig("./"+file_name+".png", dpi=300, bbox_inches='tight')
         
         plt.cla()
         plt.close(fig)

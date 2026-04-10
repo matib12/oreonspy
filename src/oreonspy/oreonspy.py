@@ -294,7 +294,7 @@ class Cavity:
                 
         return f_calc, N, Theta, partial_Theta, Theta_fraction, n_of_subhistories
 
-    def simulation(self, k, desired_f_calc, E_in_init, backend="auto"):
+    def simulation(self, lambd, desired_f_calc, E_in_init, backend="auto"):
         '''
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
         k: wave number
@@ -302,6 +302,10 @@ class Cavity:
         E_in_init: initial electric field amplitude
         backend: "pure" | "numba" | "auto"
         '''
+
+        # Convert to wave number
+        k = 2.*np.pi / lambd
+        
         logger.debug("Simulation started")
         logger.debug("k: {0}".format(k))
         logger.debug("Desired f_calc: {0}".format(desired_f_calc))
