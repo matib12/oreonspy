@@ -299,16 +299,21 @@ class Cavity:
 
         return f_calc, N, Theta, partial_Theta, Theta_fraction, n_of_subhistories
 
+<<<<<<< src/oreonspy/oreonspy.py
     def simulation(
-        self, wave_number, requested_sampling_frequency, initial_input_electric_field, backend="auto"
+        self, lambd, requested_sampling_frequency, initial_input_electric_field, backend="auto"
     ):
         """
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
-        wave_number: wave number
+        lambd: lambd
         desired_f_calc: desired calculation frequency
         initial_input_electric_field: initial electric field amplitude
         backend: "pure" | "numba" | "auto"
         """
+
+        # Convert to wave number
+        wave_number = 2.*np.pi / lambd
+        
         logger.debug("Simulation started")
         logger.debug("wave_number: {0}".format(wave_number))
         logger.debug("Desired f_calc: {0}".format(requested_sampling_frequency))
