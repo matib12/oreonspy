@@ -591,10 +591,10 @@ class Cavity:
         self.last_intracavity_electric_field_all_subhist = (
             self.airy_phi
             * np.ones(self.sim_params.num_of_subhist, dtype=np.complex128)
-            * np.exp(1.0j * np.angle(self.sim_params.E_in_init))
+            * np.exp(1.0j * np.angle(self.sim_params.initial_input_electric_field))
         )
         self.input_electric_field_history_all_subhist = [
-            self.sim_params.E_in_init
+            self.sim_params.initial_input_electric_field
             * np.ones(self.sim_params.num_roundtrips, dtype=np.complex128)
             for _ in range(self.sim_params.num_of_subhist)
         ]
