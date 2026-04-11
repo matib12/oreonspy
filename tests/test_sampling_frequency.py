@@ -301,7 +301,7 @@ def test_frequencies_agree(scenario):
 
         start = time.perf_counter()
         for i in range(tlen):
-            result_E_pure[i], result_E_ref_pure[i] = cavity_pure.sim_step(E_in_laser=1., d_zeta_in=0., d_zeta=z_steps[i])
+            result_E_pure[i], result_E_ref_pure[i] = cavity_pure.sim_step(phaseshifted_input_electric_field=1., input_mirror_displacement=0., output_mirror_displacement=z_steps[i])
         end = time.perf_counter()
         pure_exec_time = end - start
         print(f"PURE backend simulation time: {pure_exec_time:.3f} seconds")
@@ -337,7 +337,7 @@ def test_frequencies_agree(scenario):
 
             start = time.perf_counter()
             for i in range(tlen):
-                result_E_numba[i], result_E_ref_numba[i] = cavity_numba.sim_step(E_in_laser=1., d_zeta_in=0., d_zeta=z_steps[i])
+                result_E_numba[i], result_E_ref_numba[i] = cavity_numba.sim_step(phaseshifted_input_electric_field=1., input_mirror_displacement=0., output_mirror_displacement=z_steps[i])
             end = time.perf_counter()
             numba_exec_time = end - start
             print(f"NUMBA backend simulation time: {numba_exec_time:.3f} seconds")
