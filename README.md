@@ -13,6 +13,19 @@ Current package version: 4.4.2
 
 ## Installation
 
+```bash
+git clone https://github.com/matib12/oreonspy.git
+cd oreonspy
+```
+
+### Inside conda evironment
+
+```bash
+conda env create --file=environment.yml --name=oreonspy
+```
+
+### Using pip
+
 Install from this repository:
 
 ```bash
@@ -66,6 +79,16 @@ intracavity_field, reflected_field = cavity.sim_step(
 	output_mirror_displacement=0.0,
 )
 ```
+
+## Examples
+
+The repository includes practical notebook examples in the `nb` folder.
+
+- Main tutorial: `nb/example.ipynb`
+- Sampling and simulator checks: `nb/Resampling test.ipynb`
+- Notebook for accompanying paper: `nb/Reproduce figure 2 from Lee at al 1999.ipynb`
+
+We suggest to start from the `nb/example.ipynb`
 
 ## Public API
 

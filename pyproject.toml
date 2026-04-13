@@ -22,8 +22,8 @@ keywords = [
 description = "Optical resonator numerical simulation in python."
 license = "GPL-3.0-only"
 readme = "README.md"
-homepage = "https://git.ligo.org/mateusz.bawaj/tesi_svizzeretto/"
-repository = "https://git.ligo.org/mateusz.bawaj/tesi_svizzeretto/"
+homepage = "https://github.com/matib12/oreonspy/"
+repository = "https://github.com/matib12/oreonspy/"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
