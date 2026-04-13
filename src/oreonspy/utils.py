@@ -222,8 +222,6 @@ def plot_cavity_evolution(output_mirror_displacements, input_electric_field, int
             file_name = file_name.replace(" ", "_")
         fig.savefig("./"+file_name+".png", dpi=300, bbox_inches='tight')
         
-        plt.cla()
-        plt.close(fig)
+        plt.show()
     else:
         plt.show()
-        return fig
