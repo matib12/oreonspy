@@ -24,6 +24,12 @@ cd oreonspy
 conda env create --file=environment.yml --name=oreonspy
 ```
 
+Activate the environment:
+
+```bash
+conda activate oreonspy
+```
+
 ### Using pip
 
 Install from this repository:
@@ -32,19 +38,19 @@ Install from this repository:
 pip install .
 ```
 
-Install in editable mode for development:
+or Install in editable mode for development:
 
 ```bash
 pip install -e .
 ```
 
-Install optional numba support:
+or Install optional numba support:
 
 ```bash
 pip install .[numba]
 ```
 
-Build a wheel:
+or Build a wheel:
 
 ```bash
 python -m build
