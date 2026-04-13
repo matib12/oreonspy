@@ -1,68 +1,84 @@
-# tesi_svizzeretto
-
-
-## Repository structure
-
-* nb - jupyter notebooks
-* optics - Finesse simulations
-* src - python module source files (oreonspy)
-* dist - python module installation files (oreonspy)
-* OresoNS - C++ optical reasonator dynamics simulator
-
 # OreoNSpy
-## Install
-To install the module in your environment as editable use wheel file:
-```
-conda activate your_environment
-pip install oreonspy-[version]-py3-none-any.whl --no-deps
+
+Optical resonator numerical simulation in Python.
+
+Current package version: 4.4.2
+
+## Requirements
+
+- Python >= 3.10
+- numpy >= 1.23
+- matplotlib >= 3.5
+- Optional acceleration: numba >= 0.60
+
+## Installation
+
+Install from this repository:
+
+```bash
+pip install .
 ```
 
-To generate the wheel file issue the following command in the project directory:
-```
-python3 -m build
+Install in editable mode for development:
+
+```bash
+pip install -e .
 ```
 
-In some cases use:
-```
-pip install --editable .
+Install optional numba support:
+
+```bash
+pip install .[numba]
 ```
 
-## Use
-Create your cavity
-```
-import oreonspy
+Build a wheel:
 
-my_cavity = oreonspy.Cavity(t_a = 0.1, r_a = 0.9, r_b = 0.9, L=3000.)
+```bash
+python -m build
 ```
 
-Define the light interacting with the cavity
-```
-lambd = 1064e-9  # m
-k = 2.*np.pi / lambd
+## Quick Start
+
+```python
+import numpy as np
+import oreonspy as op
+
+# Build a cavity
+cavity = op.Cavity(t_a=0.1, r_a=0.9, r_b=0.9, cavity_length=3000.0)
+
+# Initialize simulation
+lambd = 1064e-9
+requested_sampling_frequency = 1450e3
+initial_input_electric_field = 1.0 + 0.0j
+cavity.simulation(
+	lambd,
+	requested_sampling_frequency,
+	initial_input_electric_field,
+	backend="auto",  # "auto" | "pure" | "numba"
+)
+
+cavity.print_sim_params()
+
+# One simulation step
+intracavity_field, reflected_field = cavity.sim_step(
+	input_electric_field=1.0 + 0.0j,
+	input_mirror_displacement=0.0,
+	output_mirror_displacement=0.0,
+)
 ```
 
-Initialize the simulation and make steps
-```
-my_cavity.simulation(k, 1450e3)
-my_cavity.print_sim_params()
+## Public API
 
-my_cavity.sim_step(d_zeta, E_in_curr=1.)
-```
+- Cavity
+- HAS_NUMBA
 
-## Install oreonspy
-### Dependencies
-* numpy>=1.23
-* matplotlib>=3.5
-* numba>=0.60 (optional)
+## Repository Structure
 
-For development install in editable way:
-```
-git clone https://github.com/Farama-Foundation/Gymnasium.git
-cd Gymnasium/
-pip install --editable .
-```
+- nb: Jupyter notebooks
+- src: Python package source code
+- docs: notes and simulation strategy material
 
-For permament use pip and for higher performance try with optional numba dependency:
-```
-pip install oreonspy[numba]
-```
+## Project Links
+
+- repository GitHub: https://github.com/matib12/oreonspy
+- description paper arXiv: 
