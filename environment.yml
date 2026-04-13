@@ -1,4 +1,4 @@
-name: ctrl
+name: oreonspy
 channels:
   - conda-forge
   - defaults
