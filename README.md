@@ -86,6 +86,14 @@ intracavity_field, reflected_field = cavity.sim_step(
 )
 ```
 
+## Loading a Cavity from XML
+
+```python
+cavity = op.Cavity.xml_load("path/to/cavity_config.xml")
+cavity.simulation(lambd, requested_sampling_frequency, initial_input_electric_field)
+cavity.sim_step(input_electric_field=1.0 + 0.0j)
+```
+
 ## Examples
 
 The repository includes practical notebook examples in the `nb` folder.
@@ -96,6 +104,13 @@ The repository includes practical notebook examples in the `nb` folder.
 
 We suggest to start from the `nb/example.ipynb`
 
+## Simulation Results
+
+The following image shows a linear scan of the optical cavity with constant mirror velocity, demonstrating the cavity's response characteristics:
+
+
+<img src="nb/Linear_scan_of_the_cavity_with_constant_velocity.png" width="600">
+
 ## Public API
 
 - Cavity
@@ -105,7 +120,7 @@ We suggest to start from the `nb/example.ipynb`
 
 - nb: Jupyter notebooks
 - src: Python package source code
-- docs: notes and simulation strategy material
+- tests: optical cavity configuration files used in the accompanying paper
 
 ## Project Links
 
