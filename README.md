@@ -126,3 +126,6 @@ The following image shows a linear scan of the optical cavity with constant mirr
 
 - repository GitHub: https://github.com/matib12/oreonspy
 - description paper arXiv: 
+
+
+[![DOI](https://zenodo.org/badge/1209379537.svg)](https://doi.org/10.5281/zenodo.19567205)
