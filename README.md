@@ -2,7 +2,7 @@
 
 Optical resonator numerical simulation in Python.
 
-Current package version: 4.4.2
+Current package version: 4.4.4
 
 ## Requirements
 
@@ -101,6 +101,7 @@ The repository includes practical notebook examples in the `nb` folder.
 - Main tutorial: `nb/example.ipynb`
 - Sampling and simulator checks: `nb/Resampling test.ipynb`
 - Notebook for accompanying paper: `nb/Reproduce figure 2 from Lee at al 1999.ipynb`
+- Notebook for accompanying paper: `nb/Reproduce figure 2 from Xue et al 2026.ipynb`
 
 We suggest to start from the `nb/example.ipynb`
 
@@ -125,7 +126,7 @@ The following image shows a linear scan of the optical cavity with constant mirr
 ## Project Links
 
 - repository GitHub: https://github.com/matib12/oreonspy
-- description paper arXiv: 
+- description arXiv pre-print: https://doi.org/10.48550/arXiv.2605.13599
 
 
 [![DOI](https://zenodo.org/badge/1209379537.svg)](https://doi.org/10.5281/zenodo.19567205)
