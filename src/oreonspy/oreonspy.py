@@ -6,6 +6,7 @@
 # - Andrea Svizzeretto, <andrea.svizzeretto@studenti.unipg.it>
 # - Mateusz Bawaj, <mateusz.bawaj@unipg.it>
 
+import os
 import numpy as np
 from matplotlib import pyplot as plt
 import xml.etree.ElementTree as ET
@@ -38,6 +39,7 @@ mpl_logger.setLevel(logging.WARNING)
 @dataclass
 class CavityParams:
     t_a: float
+    t_b: float
     r_a: float
     r_b: float
     cavity_length: float
@@ -45,6 +47,22 @@ class CavityParams:
     @property
     def half_roundtrip_time(self):
         return self.cavity_length / c
+
+    @property
+    def T_A(self):
+        return np.power(self.t_a, 2)
+
+    @property
+    def T_B(self):
+        return np.power(self.t_b, 2)
+
+    @property
+    def R_A(self):
+        return np.power(self.r_a, 2)
+
+    @property
+    def R_B(self):
+        return np.power(self.r_b, 2)
 
 
 @dataclass
@@ -67,37 +85,51 @@ class Cavity:
 
     def __init__(
         self,
-        t_a=0.001,
-        T_A=None,
-        r_a=0.99,
+        cavity_length,
+        r_a=0.0,
         R_A=None,
-        r_b=0.999,
+        t_a=None,
+        T_A=None,
+        r_b=1.0,
         R_B=None,
-        cavity_length=3000.0,
+        t_b=None,
+        T_B=None,
         debug=None,
         log_file=None,
     ):
         self.sim_params = SimulationParams()
 
-        if T_A is not None:
-            t_a = np.sqrt(T_A)
-        else:
-            t_a = t_a
-
         if R_A is not None:
             r_a = np.sqrt(R_A)
-        else:
-            r_a = r_a
+
+        if T_A is not None:
+            t_a = np.sqrt(T_A)
+        elif t_a is None:
+            t_a = np.sqrt(1.0 - r_a**2)
 
         if R_B is not None:
             r_b = np.sqrt(R_B)
-        else:
-            r_b = r_b
+
+        if T_B is not None:
+            t_b = np.sqrt(T_B)
+        elif t_b is None:
+            t_b = np.sqrt(1.0 - r_b**2)
 
         self.params = CavityParams(
-            t_a=t_a, r_a=r_a, r_b=r_b, cavity_length=cavity_length
+            t_a=t_a, t_b=t_b, r_a=r_a, r_b=r_b, cavity_length=cavity_length
         )
-        # self._sync_param_aliases()
+
+        assert 0.0 < self.params.r_a < 1.0, "R_A must be in the range (0, 1)"
+        assert 0.0 < self.params.t_a < 1.0, "T_A must be in the range (0, 1)"
+        assert 0.0 < self.params.r_b <= 1.0, "R_B must be in the range (0, 1]"
+        assert 0.0 <= self.params.t_b < 1.0, "T_B must be in the range [0, 1)"
+        assert (
+            self.params.T_A + self.params.R_A
+        ) <= 1.0 + np.finfo(float).eps * 3, "T_A + R_A must be less than or equal to 1"
+        assert (
+            self.params.T_B + self.params.R_B
+        ) <= 1.0 + np.finfo(float).eps * 3, "T_B + R_B must be less than or equal to 1"
+        assert cavity_length > 0.0, "cavity_length must be positive"
 
         self.debug = debug
         if debug is None:
@@ -120,6 +152,7 @@ class Cavity:
 
             logger.debug("Cavity initialized with parameters:")
             logger.debug("t_a: {0}".format(self.params.t_a))
+            logger.debug("t_b: {0}".format(self.params.t_b))
             logger.debug("r_a: {0}".format(self.params.r_a))
             logger.debug("r_b: {0}".format(self.params.r_b))
             logger.debug("L: {0}".format(self.params.cavity_length))
@@ -127,7 +160,7 @@ class Cavity:
             logger.debug("Debug level: {0}".format(debug))
 
     def cavity_loss(self):
-        loss = 1.0 - np.power(self.params.t_a, 2) - np.power(self.params.r_a, 2)
+        loss = 1.0 - (self.params.T_B - self.params.R_A)
 
         if loss < 0.0:
             print("Attenti ai valori")
@@ -300,7 +333,11 @@ class Cavity:
         return f_calc, N, Theta, partial_Theta, Theta_fraction, n_of_subhistories
 
     def simulation(
-        self, lambd, requested_sampling_frequency, initial_input_electric_field, backend="auto"
+        self,
+        lambd,
+        requested_sampling_frequency,
+        initial_input_electric_field,
+        backend="auto",
     ):
         """
         With respect to version 2.0.0, the simulation works with incident electric field instead of optical power.
@@ -311,8 +348,8 @@ class Cavity:
         """
 
         # Convert to wave number
-        wave_number = 2.*np.pi / lambd
-        
+        wave_number = 2.0 * np.pi / lambd
+
         logger.debug("Simulation started")
         logger.debug("wave_number: {0}".format(wave_number))
         logger.debug("Desired f_calc: {0}".format(requested_sampling_frequency))
@@ -324,11 +361,20 @@ class Cavity:
         k2j = -2.0j * wave_number  # Used frequently in step()
 
         # Estimate sampling frequency and related parameters
-        sampling_frequency, N, Theta, partial_Theta, Theta_fraction, num_of_subhistories = (
-            self.estimate_f_calc(requested_sampling_frequency)
-        )
+        (
+            sampling_frequency,
+            N,
+            Theta,
+            partial_Theta,
+            Theta_fraction,
+            num_of_subhistories,
+        ) = self.estimate_f_calc(requested_sampling_frequency)
 
-        sampling_frequency_accuracy = 1.0 - np.abs(sampling_frequency - requested_sampling_frequency) / requested_sampling_frequency
+        sampling_frequency_accuracy = (
+            1.0
+            - np.abs(sampling_frequency - requested_sampling_frequency)
+            / requested_sampling_frequency
+        )
 
         self.sim_params = SimulationParams(
             wave_number=wave_number,
@@ -416,13 +462,10 @@ class Cavity:
             * np.ones(self.sim_params.num_of_subhist, dtype=np.complex128)
             * np.exp(1.0j * np.angle(self.sim_params.initial_input_electric_field))
         )
-
-        # Define a list of deque buffers for the electric field
-        self.input_electric_field_history_all_subhist = [
+        self.last_input_electric_field = (
             self.sim_params.initial_input_electric_field
-            * np.ones(self.sim_params.num_roundtrips, dtype=np.complex128)
-            for _ in range(self.sim_params.num_of_subhist)
-        ]
+            * np.ones(self.sim_params.num_of_subhist, dtype=np.complex128)
+        )
         logger.debug(
             "last_intracavity_electric_field_all_subhist cplx: {0}".format(
                 self.last_intracavity_electric_field_all_subhist
@@ -500,7 +543,6 @@ class Cavity:
         )
 
         (
-            self.input_electric_field_history_all_subhist[subhist_idx],
             intracavity_electric_field,
             self.last_total_output_mirror_displacement_all_subhist[subhist_idx],
         ) = heavy(
@@ -511,7 +553,7 @@ class Cavity:
             self.sim_params.partial_Theta,
             self.sim_params.Theta_fraction,
             self.sim_params.num_roundtrips,
-            self.input_electric_field_history_all_subhist[subhist_idx],
+            self.last_input_electric_field[subhist_idx],
             self.rarbne2iknL,
             self.sim_params.k2j,
             self.params.t_a,
@@ -522,6 +564,8 @@ class Cavity:
         self.last_intracavity_electric_field_all_subhist[subhist_idx] = (
             intracavity_electric_field
         )
+
+        self.last_input_electric_field[subhist_idx] = input_electric_field
 
         # logger.debug("E_last: {0}".format(self.last_intracavity_electric_field_all_subhist))
 
@@ -593,11 +637,10 @@ class Cavity:
             * np.ones(self.sim_params.num_of_subhist, dtype=np.complex128)
             * np.exp(1.0j * np.angle(self.sim_params.initial_input_electric_field))
         )
-        self.input_electric_field_history_all_subhist = [
+        self.last_input_electric_field_all_subhist = (
             self.sim_params.initial_input_electric_field
-            * np.ones(self.sim_params.num_roundtrips, dtype=np.complex128)
-            for _ in range(self.sim_params.num_of_subhist)
-        ]
+            * np.ones(self.sim_params.num_of_subhist, dtype=np.complex128)
+        )
         self.last_total_output_mirror_displacement_all_subhist = np.zeros(
             self.sim_params.num_of_subhist
         )
@@ -681,8 +724,10 @@ class Cavity:
         """
         root = ET.Element("Cavity")
 
+        root.set("version", "2.1")
+
         # Parameters to save from the CavityParams dataclass
-        params_to_save = ["t_a", "r_a", "r_b", "cavity_length"]
+        params_to_save = ["t_a", "r_a", "r_b", "t_b", "cavity_length"]
 
         # Add parameters as sub-elements
         for param_name in params_to_save:
@@ -704,7 +749,7 @@ class Cavity:
         except Exception as e:
             logger.error(f"Error writing the XML file: {e}")
 
-    def xml_load(self, filename=None):
+    def xml_load(self, filename=None, debug=False, log_file=None):
         """
         Load cavity parameters from an XML file.
 
@@ -727,8 +772,11 @@ class Cavity:
         else:
             # Allow class-style call Cavity.xml_load('file.xml') by interpreting
             # the first argument as filename and creating a new object.
-            cavity_obj = Cavity()
+            cavity_obj = Cavity(cavity_length=1.0, r_a=0.5)
             xml_filename = self
+
+        if not os.path.exists(xml_filename):
+            raise FileNotFoundError(f"File {xml_filename} not found.")
 
         # Load the XML file
         try:
@@ -743,19 +791,26 @@ class Cavity:
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
             return
-
+            
         # Extract parameters from the XML
         params = {}
         for param in root:
             params[param.tag] = float(param.text)
+
+        # Validate required parameters
+        if "t_b" not in params:
+            # Assume lossless case
+            params["t_b"] = np.sqrt(1.0 - params["r_b"] ** 2)
 
         # Reinitialize the Cavity object with the loaded parameters
         cavity_obj.__init__(
             t_a=params["t_a"],
             r_a=params["r_a"],
             r_b=params["r_b"],
+            t_b=params["t_b"],
             cavity_length=params["cavity_length"],
-            debug=cavity_obj.debug,
+            debug=debug,
+            log_file=log_file
         )
         return cavity_obj
 
